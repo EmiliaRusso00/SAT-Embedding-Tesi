@@ -22,7 +22,7 @@ def compute_positions(G, metadata=None, dwave_generated=False):
         gtype = metadata.get("type", "").lower()
         try:
             if gtype == "chimera":
-                G_dwave = dnx.chimera_graph(metadata.get("M"), metadata.get("N"), metadata.get("L", 4))
+                G_dwave = dnx.chimera_graph(metadata.get("rows"), metadata.get("cols"), metadata.get("tile", 4))
                 return dnx.chimera_layout(G_dwave), 2
             elif gtype == "pegasus":
                 G_dwave = dnx.pegasus_graph(metadata.get("m"))
