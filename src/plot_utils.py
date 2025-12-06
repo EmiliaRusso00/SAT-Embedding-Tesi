@@ -54,11 +54,11 @@ def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
         try:
             plt.figure(figsize=figsize)
             if dwave_type == "chimera":
-                draw_chimera(G, node_size=40, node_color=node_colors or 'lightblue', edgecolors='black')
+                draw_chimera(G, node_size=10, node_color=node_colors or 'lightblue', edgecolors='black')
             elif dwave_type == "pegasus":
-                draw_pegasus(G, node_size=40, node_color=node_colors or 'lightcoral', edgecolors='black')
+                draw_pegasus(G, node_size=10, node_color=node_colors or 'lightcoral', edgecolors='black')
             elif dwave_type == "zephyr":
-                draw_zephyr(G, node_size=40, node_color=node_colors or 'mediumpurple', edgecolors='black')
+                draw_zephyr(G, node_size=10, node_color=node_colors or 'mediumpurple', edgecolors='black')
             plt.title(title)
             if save_path:
                 plt.savefig(save_path, bbox_inches="tight")
@@ -89,7 +89,7 @@ def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
             ax.plot(x, y, z, color=ec, linewidth=ew)
         for n in G.nodes():
             x, y, z = pos[n]
-            ax.text(x, y, z, node_labels[n], color='black')
+          #  ax.text(x, y, z, node_labels[n], color='black')
         ax.set_title(title)
     else:
         ax = fig.add_subplot(111)
@@ -166,10 +166,10 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
         v_t = (v,) if isinstance(v, int) else tuple(v)
         if tuple(sorted((u_t, v_t))) in reduced_edges:
             edge_colors.append("green")
-            edge_widths.append(2)
+            edge_widths.append(0.5)
         else:
             edge_colors.append("gray")
-            edge_widths.append(1)
+            edge_widths.append(0.5)
 
     plot_graph(G_physical, pos_phys, dim_phys,
                title="Physical Graph + Reduced Nodes/Edges",

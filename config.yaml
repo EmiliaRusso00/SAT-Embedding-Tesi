@@ -1,141 +1,142 @@
 experiments:
-  - id: 1
-    logical_graph: graphs/cycle3.txt
-    logical_graph_json: graphs/cycle3.json
-    physical_graph: graphs/pegasus3.txt
-    physical_graph_json: graphs/pegasus3.json
-    reduce_physical_graph: outputs/1/reduced/reduced_physical_1.json
-    max_chain_length: 1
-    allow_shared_physical_qubits: false
-    timeout_seconds: 30
-    check_treewidth: false
-    generate_full_and_reduced: true
-
-  
-  - id: 2
-    logical_graph: graphs/cycle5.txt
-    logical_graph_json: graphs/cycle5.json
-    physical_graph: graphs/pegasus3.txt
-    physical_graph_json: graphs/pegasus3.json
-    reduce_physical_graph: outputs/2/reduced/reduced_physical_2.json
-    max_chain_length: 1
-    allow_shared_physical_qubits: false
-    timeout_seconds: 30
-    check_treewidth: false
-    generate_full_and_reduced: true
-
-
-  
-  - id: 3
-    logical_graph: graphs/cycle10.txt
-    logical_graph_json: graphs/cycle10.json
-    physical_graph: graphs/chimera3x3x4.txt
-    physical_graph_json: graphs/chimera3x3x4.json
-    reduce_physical_graph: outputs/3/reduced/reduced_physical_3.json
-    max_chain_length: 1
-    allow_shared_physical_qubits: false
-    timeout_seconds: 30
-    check_treewidth: false
-    generate_full_and_reduced: true
-
-
-
-  - id: 4
-    logical_graph: graphs/clique4.txt
-    logical_graph_json: graphs/clique4.json
-    physical_graph: graphs/pegasus2.txt
-    physical_graph_json: graphs/pegasus2.json
-    reduce_physical_graph: outputs/4/reduced/reduced_physical_4.json
-    max_chain_length: 1
-    allow_shared_physical_qubits: false
-    timeout_seconds: 30
-    check_treewidth: false
-    generate_full_and_reduced: true
-
-
-
-  - id: 5
-    logical_graph: graphs/griglia3x3.txt
-    logical_graph_json: graphs/griglia3x3.json
-    physical_graph: graphs/pegasus2.txt
-    physical_graph_json: graphs/pegasus2.json
-    reduce_physical_graph: outputs/5/reduced/reduced_physical_5.json
-    max_chain_length: 1
-    allow_shared_physical_qubits: false
-    timeout_seconds: 30
-    check_treewidth: false
-    generate_full_and_reduced: true
-
-
-
-
-  - id: 6
-    logical_graph: graphs/griglia2x2x2.txt
-    logical_graph_json: graphs/griglia2x2x2.json
-    physical_graph: graphs/zephyr1.txt
-    physical_graph_json: graphs/zephyr1.json
-    reduce_physical_graph: outputs/6/reduced/reduced_physical_6.json
-    max_chain_length: 1
-    allow_shared_physical_qubits: false
-    timeout_seconds: 30
-    check_treewidth: false
-    generate_full_and_reduced: true
-
-
-  
-
-  - id: 7
-    logical_graph: graphs/griglia3x3x3.txt
-    logical_graph_json: graphs/griglia3x3x3.json
-    physical_graph: graphs/chimera3x3x4.txt
-    physical_graph_json: graphs/chimera3x3x4.json
-    reduce_physical_graph: outputs/7/reduced/reduced_physical_7.json
-    max_chain_length: 1
-    allow_shared_physical_qubits: false
-    timeout_seconds: 30
-    check_treewidth: false
-    generate_full_and_reduced: true
-
-
-  
-  - id: 8
-    logical_graph: graphs/bipartito4x4.txt
-    logical_graph_json: graphs/bipartito4x4.json
-    physical_graph: graphs/chimera10x10x4.txt
-    physical_graph_json: graphs/chimera10x10x4.json
-    reduce_physical_graph: outputs/8/reduced/reduced_physical_8.json
-    max_chain_length: 1
-    allow_shared_physical_qubits: false
-    timeout_seconds: 100
-    check_treewidth: false
-    generate_full_and_reduced: true
-
-  
-  - id: 9
-    logical_graph: graphs/bipartito5x5.txt
-    logical_graph_json: graphs/bipartito5x5.json
-    physical_graph: graphs/pegasus6.txt
-    physical_graph_json: graphs/pegasus6.json
-    reduce_physical_graph: outputs/9/reduced/reduced_physical_9.json
-    max_chain_length: 1
-    allow_shared_physical_qubits: false
-    timeout_seconds: 100
-    check_treewidth: false
-    generate_full_and_reduced: true
+#  - id: 1
+#    logical_graph: graphs/cycle3.txt
+#    logical_graph_json: graphs/cycle3.json
+#    physical_graph: graphs/pegasus3.txt
+#    physical_graph_json: graphs/pegasus3.json
+#    reduce_physical_graph: outputs/1/reduced/reduced_physical_1.json
+#    max_chain_length: 1
+#    allow_shared_physical_qubits: false
+#    timeout_seconds: 30
+#    check_treewidth: false
+#    generate_full_and_reduced: true
+#
+#  
+#  - id: 2
+#    logical_graph: graphs/cycle5.txt
+#    logical_graph_json: graphs/cycle5.json
+#    physical_graph: graphs/pegasus3.txt
+#    physical_graph_json: graphs/pegasus3.json
+#    reduce_physical_graph: outputs/2/reduced/reduced_physical_2.json
+#    max_chain_length: 1
+#    allow_shared_physical_qubits: false
+#    timeout_seconds: 30
+#    check_treewidth: false
+#    generate_full_and_reduced: true
+#
+#
+#  
+#  - id: 3
+#    logical_graph: graphs/cycle10.txt
+#    logical_graph_json: graphs/cycle10.json
+#    physical_graph: graphs/chimera3x3x4.txt
+#    physical_graph_json: graphs/chimera3x3x4.json
+#    reduce_physical_graph: outputs/3/reduced/reduced_physical_3.json
+#    max_chain_length: 1
+#    allow_shared_physical_qubits: false
+#    timeout_seconds: 30
+#    check_treewidth: false
+#    generate_full_and_reduced: true
+#
+#
+#
+#  - id: 4
+#    logical_graph: graphs/clique4.txt
+#    logical_graph_json: graphs/clique4.json
+#    physical_graph: graphs/pegasus2.txt
+#    physical_graph_json: graphs/pegasus2.json
+#    reduce_physical_graph: outputs/4/reduced/reduced_physical_4.json
+#    max_chain_length: 1
+#    allow_shared_physical_qubits: false
+#    timeout_seconds: 30
+#    check_treewidth: false
+#    generate_full_and_reduced: true
+#
+#
+#
+#  - id: 5
+#    logical_graph: graphs/griglia3x3.txt
+#    logical_graph_json: graphs/griglia3x3.json
+#    physical_graph: graphs/pegasus2.txt
+#    physical_graph_json: graphs/pegasus2.json
+#    reduce_physical_graph: outputs/5/reduced/reduced_physical_5.json
+#    max_chain_length: 1
+#    allow_shared_physical_qubits: false
+#    timeout_seconds: 30
+#    check_treewidth: false
+#    generate_full_and_reduced: true
+#
+#
+#
+#
+#  - id: 6
+#    logical_graph: graphs/griglia2x2x2.txt
+#    logical_graph_json: graphs/griglia2x2x2.json
+#    physical_graph: graphs/zephyr1.txt
+#    physical_graph_json: graphs/zephyr1.json
+#    reduce_physical_graph: outputs/6/reduced/reduced_physical_6.json
+#    max_chain_length: 1
+#    allow_shared_physical_qubits: false
+#    timeout_seconds: 30
+#    check_treewidth: false
+#    generate_full_and_reduced: true
+#
+#
+#  
+#
+#  - id: 7
+#    logical_graph: graphs/griglia3x3x3.txt
+#    logical_graph_json: graphs/griglia3x3x3.json
+#    physical_graph: graphs/chimera3x3x4.txt
+#    physical_graph_json: graphs/chimera3x3x4.json
+#    reduce_physical_graph: outputs/7/reduced/reduced_physical_7.json
+#    max_chain_length: 1
+#    allow_shared_physical_qubits: false
+#    timeout_seconds: 30
+#    check_treewidth: false
+#    generate_full_and_reduced: true
+#
+#
+#  
+#  - id: 8
+#    logical_graph: graphs/bipartito4x4.txt
+#    logical_graph_json: graphs/bipartito4x4.json
+#    physical_graph: graphs/chimera10x10x4.txt
+#    physical_graph_json: graphs/chimera10x10x4.json
+#    reduce_physical_graph: outputs/8/reduced/reduced_physical_8.json
+#    max_chain_length: 1
+#    allow_shared_physical_qubits: false
+#    timeout_seconds: 100
+#    check_treewidth: false
+#    generate_full_and_reduced: true
+#
+#  
+#  - id: 9
+#    logical_graph: graphs/bipartito5x5.txt
+#    logical_graph_json: graphs/bipartito5x5.json
+#    physical_graph: graphs/pegasus6.txt
+#    physical_graph_json: graphs/pegasus6.json
+#    reduce_physical_graph: outputs/9/reduced/reduced_physical_9.json
+#    max_chain_length: 1
+#    allow_shared_physical_qubits: false
+#    timeout_seconds: 100
+#    check_treewidth: false
+#    generate_full_and_reduced: true
 
   
   #minorminer lung chain 3
-# - id: 2
-#   logical_graph: graphs/path5.txt
-#   logical_graph_json: graphs/path5.json
-#   physical_graph: graphs/stella4.txt
-#   physical_graph_json: graphs/stella4.json
-#   reduce_physical_graph: outputs/2/reduced_physical_2.json
-#   max_chain_length: 1
-#   allow_shared_physical_qubits: false
-#   timeout_seconds: 30
-#   check_treewidth: false
-#
+  - id: 10
+    logical_graph: graphs/tree15.txt
+    logical_graph_json: graphs/tree15.json
+    physical_graph: graphs/chimera10x10x4.txt
+    physical_graph_json: graphs/chimera10x10x4.json
+    reduce_physical_graph: outputs/10/reduced/reduced_physical_10.json
+    max_chain_length: 1
+    allow_shared_physical_qubits: false
+    timeout_seconds: 1000
+    check_treewidth: false
+    generate_full_and_reduced: true
+
 # - id: 3
 #   logical_graph: graphs/cycle6.txt
 #   logical_graph_json: graphs/cycle6.json
