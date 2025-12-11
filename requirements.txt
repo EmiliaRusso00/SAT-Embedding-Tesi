@@ -2,3 +2,6 @@ networkx
 python-sat
 pyyaml
 tqdm
+numpy
+matplotlib
+dwave-networkx

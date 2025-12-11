@@ -222,30 +222,30 @@ experiments:
 #   check_treewidth: false
 #   generate_full_and_reduced: true
 #MinorMiner chain=2
- - id: 18
-   logical_graph: graphs/smallword15.txt #15 4 0.2
-   logical_graph_json: graphs/smallword15.json
-   physical_graph: graphs/pegasus3.txt
-   physical_graph_json: graphs/pegasus3.json
-   reduce_physical_graph: outputs/18/reduced/reduced_physical_18.json
-   max_chain_length: 1
-   allow_shared_physical_qubits: false  
-   timeout_seconds: 300
-   check_treewidth: false
-   generate_full_and_reduced: true
-
- #MinorMiner chain=2 
- - id: 19
-   logical_graph: graphs/scalefree15.txt
-   logical_graph_json: graphs/scalefree15.json
-   physical_graph: graphs/zephyr4.txt
-   physical_graph_json: graphs/zephyr4.json
-   reduce_physical_graph: outputs/19/reduced/reduced_physical_19.json
-   max_chain_length: 1
-   allow_shared_physical_qubits: false  
-   timeout_seconds: 600
-   check_treewidth: false
-   generate_full_and_reduced: true
+#- id: 18
+#  logical_graph: graphs/smallword15.txt #15 4 0.2
+#  logical_graph_json: graphs/smallword15.json
+#  physical_graph: graphs/pegasus3.txt
+#  physical_graph_json: graphs/pegasus3.json
+#  reduce_physical_graph: outputs/18/reduced/reduced_physical_18.json
+#  max_chain_length: 1
+#  allow_shared_physical_qubits: false  
+#  timeout_seconds: 300
+#  check_treewidth: false
+#  generate_full_and_reduced: true
+#
+##MinorMiner chain=2 
+#- id: 19
+#  logical_graph: graphs/scalefree15.txt
+#  logical_graph_json: graphs/scalefree15.json
+#  physical_graph: graphs/zephyr4.txt
+#  physical_graph_json: graphs/zephyr4.json
+#  reduce_physical_graph: outputs/19/reduced/reduced_physical_19.json
+#  max_chain_length: 1
+#  allow_shared_physical_qubits: false  
+#  timeout_seconds: 600
+#  check_treewidth: false
+#  generate_full_and_reduced: true
 
 #minorminer chain=1
  - id: 20
