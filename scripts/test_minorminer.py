@@ -195,7 +195,13 @@ def main():
     print("\n=== AVVIO MINOR MINER ===")
     print("Embedding in corso...")
 
-    embedding = minorminer.find_embedding(logical.edges(), physical.edges())
+    embedding = minorminer.find_embedding(
+    logical.edges(),
+    physical.edges(),
+    tries=100,
+    timeout=10,
+    random_seed=123
+)
 
     if embedding:
         print("\nEmbedding trovato ✔")

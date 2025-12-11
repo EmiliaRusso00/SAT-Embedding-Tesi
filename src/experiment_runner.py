@@ -66,6 +66,11 @@ def run_experiment(cfg, skip_reduction=False):
     # Precheck: non embeddable
     if not gen.embeddable:
         print("[ERROR] Embedding impossibile — salto solver.")
+        
+        # Chiede all'utente se visualizzare le etichette
+        show_labels_choice = input("\nVuoi visualizzare le etichette nei grafici? (si/no): ").strip().lower()
+        show_labels = (show_labels_choice == "si")
+        
         write_experiment_output(
             exp_id, cfg, G_log_txt, G_phys_txt,
             0, 0, "pairwise",
@@ -82,7 +87,8 @@ def run_experiment(cfg, skip_reduction=False):
             logical_metadata=logical_metadata,
             physical_metadata=physical_metadata,
             logical_dwave=logical_dwave,
-            physical_dwave=physical_dwave
+            physical_dwave=physical_dwave,
+            show_labels=show_labels
         )
         return
 
@@ -99,6 +105,10 @@ def run_experiment(cfg, skip_reduction=False):
     user_choice = input("\nVuoi recuperare tutte le soluzioni? (si/no): ").strip().lower()
     enumerate_all = (user_choice == "si")
 
+    # Chiede all'utente se visualizzare le etichette
+    show_labels_choice = input("\nVuoi visualizzare le etichette nei grafici? (si/no): ").strip().lower()
+    show_labels = (show_labels_choice == "si")
+
     all_solutions = []
     solution_map = None
     unsat_clauses_serializable = None
@@ -108,7 +118,40 @@ def run_experiment(cfg, skip_reduction=False):
         res = solve_dimacs_file(dimacs_path, timeout_seconds=timeout, cnf_gen=gen)
         t_sat_end = time.time()
         elapsed_sat = t_sat_end - t_sat_start
+        
+        if res.get("status") == "UNSAT":
+            core_ids = res.get("unsat_core")
+            if core_ids:
+                # invert mapping var_id -> (logical_id, physical_id)
+                rev_var_map = {vid: (i, a) for (i, a), vid in gen.var_map.items()}
 
+                def clause_to_struct(clause, ctype):
+                    logicals = []
+                    physicals = []
+                    for lit in clause:
+                        vid = abs(lit)
+                        entry = rev_var_map.get(vid)
+                        if entry:
+                            i, a = entry
+                            logicals.append(i)
+                            physicals.append(a)
+                    return {
+                        "type": ctype,
+                        "clause": clause,
+                        "logical_pair": logicals,
+                        "physical_pair": physicals,
+                    }
+
+                unsat_clauses_serializable = []
+                for cid in core_ids:
+                    clause = gen.clauses[cid]
+                    ctype = gen.clause_type[cid] if cid < len(gen.clause_type) else "unknown"
+                    unsat_clauses_serializable.append(clause_to_struct(clause, ctype))
+            else:
+                unsat_clauses_serializable = None
+        if not res.get("model"):
+            print("[INFO] Nessuna soluzione trovata.")
+            break
         if res.get("status") != "SAT" or not res.get("model"):
             print("[INFO] Nessun'altra soluzione trovata.")
             break
@@ -143,7 +186,9 @@ def run_experiment(cfg, skip_reduction=False):
     # ----------------------------------------------------
     total_sat_time = sum(sol["sat_time"] for sol in all_solutions)
     final_status = "SAT" if all_solutions else res.get("status", "UNKNOWN")
+    
 
+    
     write_experiment_output(
         exp_id, cfg, G_log_txt, G_phys_txt,
         num_vars, num_clauses, "pairwise",
@@ -152,10 +197,11 @@ def run_experiment(cfg, skip_reduction=False):
         total_sat_time,
         final_status,
         solution=all_solutions,
-        unsat_clauses=unsat_clauses_serializable,
         solver_error=res.get("error"),
+        unsat_clauses=unsat_clauses_serializable,
         output_dir=exp_dir
     )
+
 
     print(f"[INFO] Saved results in: {exp_dir}")
 
@@ -171,15 +217,18 @@ def run_experiment(cfg, skip_reduction=False):
             logical_metadata=logical_metadata,
             physical_metadata=physical_metadata,
             logical_dwave=logical_dwave,
-            physical_dwave=physical_dwave
+            physical_dwave=physical_dwave,
+            show_labels=show_labels
         )
     else:
         plot_noembedding(
             G_log_json, G_phys_json, exp_dir, exp_id,
+            reduced_file=reduce_physical_file,
             logical_metadata=logical_metadata,
             physical_metadata=physical_metadata,
             logical_dwave=logical_dwave,
-            physical_dwave=physical_dwave
+            physical_dwave=physical_dwave,
+            show_labels=show_labels
         )
 
 

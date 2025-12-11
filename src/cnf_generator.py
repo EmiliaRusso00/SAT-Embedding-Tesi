@@ -331,14 +331,22 @@ class CNFGenerator:
         for a in self.physical_nodes:
             for i, j in combinations(self.logical_nodes, 2):
                 self.add_clause([-self.x(i, a), -self.x(j, a)], "mutual_exclusion")
-
+                
     def encode_edge_consistency(self):
         phys_edges = set(tuple(sorted(e)) for e in self.G_phys.edges())
+
         for i, j in self.G_log.edges():
             for a in self.physical_nodes:
                 for b in self.physical_nodes:
-                    if a == b or (min(a, b), max(a, b)) not in phys_edges:
-                        self.add_clause([-self.x(i, a), -self.x(j, b)], "edge_consistency")
+                    if self.allow_shared_physical:
+                        # Permetti a==b, ma vieta accoppiamenti non adiacenti
+                        if a != b and (min(a, b), max(a, b)) not in phys_edges:
+                            self.add_clause([-self.x(i, a), -self.x(j, b)], "edge_consistency")
+                    else:
+                        # Standard embedding: vieta anche a==b
+                        if a == b or (min(a, b), max(a, b)) not in phys_edges:
+                            self.add_clause([-self.x(i, a), -self.x(j, b)], "edge_consistency")
+
 
     # -------------------------
     # Generazione CNF

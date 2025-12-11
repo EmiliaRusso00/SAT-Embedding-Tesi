@@ -46,7 +46,8 @@ def compute_positions(G, metadata=None, dwave_generated=False):
 # ================================================================
 def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
                node_labels=None, edge_colors=None, edge_widths=None,
-               figsize=(6, 6), save_path=None, dwave_draw=False, dwave_type=None):
+               figsize=(6, 6), save_path=None, dwave_draw=False, dwave_type=None,
+               show_labels=False):
 
     ensure_dir(os.path.dirname(save_path) if save_path else ".")
 
@@ -54,11 +55,11 @@ def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
         try:
             plt.figure(figsize=figsize)
             if dwave_type == "chimera":
-                draw_chimera(G, node_size=10, node_color=node_colors or 'lightblue', edgecolors='black')
+                draw_chimera(G, node_size=10, node_color=node_colors or 'lightblue', edge_color=edge_colors or 'black')
             elif dwave_type == "pegasus":
-                draw_pegasus(G, node_size=10, node_color=node_colors or 'lightcoral', edgecolors='black')
+                draw_pegasus(G, node_size=10, node_color=node_colors or 'lightcoral', edge_color=edge_colors or 'black')
             elif dwave_type == "zephyr":
-                draw_zephyr(G, node_size=10, node_color=node_colors or 'mediumpurple', edgecolors='black')
+                draw_zephyr(G, node_size=10, node_color=node_colors or 'mediumpurple', edge_color=edge_colors or 'black')
             plt.title(title)
             if save_path:
                 plt.savefig(save_path, bbox_inches="tight")
@@ -89,17 +90,19 @@ def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
             ax.plot(x, y, z, color=ec, linewidth=ew)
         for n in G.nodes():
             x, y, z = pos[n]
-          #  ax.text(x, y, z, node_labels[n], color='black')
+            if show_labels:
+                ax.text(x, y, z, node_labels[n], color='black', fontsize=5)
         ax.set_title(title)
     else:
         ax = fig.add_subplot(111)
         nx.draw_networkx_edges(G, pos, edge_color=edge_colors, width=edge_widths, alpha=0.8, ax=ax)
         nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=10, ax=ax)
-        # nx.draw_networkx_labels(G, pos, labels=node_labels, font_color='white', font_weight='bold', ax=ax, font_size=6)
+        if show_labels:
+            nx.draw_networkx_labels(G, pos, labels=node_labels, font_color='black', font_weight='bold', ax=ax, font_size=6)
         plt.title(title)
 
     if save_path:
-        plt.savefig(save_path, bbox_inches="tight", dpi=300)
+        plt.savefig(save_path, bbox_inches="tight", dpi=400)
     plt.close()
 
 
@@ -108,7 +111,7 @@ def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
 # ================================================================
 def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
                    reduced_file=None, logical_metadata=None, physical_metadata=None,
-                   logical_dwave=False, physical_dwave=False):
+                   logical_dwave=False, physical_dwave=False, show_labels=False):
 
     ensure_dir(save_dir)
 
@@ -146,7 +149,8 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
                node_colors=['skyblue'] * len(G_logical.nodes()),
                save_path=os.path.join(save_dir, f"exp_{exp_id}_logical.png"),
                dwave_draw=logical_dwave,
-               dwave_type=logical_metadata.get("type") if logical_metadata else None)
+               dwave_type=logical_metadata.get("type") if logical_metadata else None,
+               show_labels=show_labels)
 
     # ============================================================
     # PHYSICAL PLOT + NODI/ARCHI RIDOTTI
@@ -157,7 +161,7 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
     node_colors = []
     for n in G_physical.nodes():
         n_tuple = (n,) if isinstance(n, int) else tuple(n)
-        node_colors.append("lightgreen" if n_tuple in reduced_nodes else "lightgray")
+        node_colors.append("plum" if n_tuple in reduced_nodes else "lightgray")
 
     # colori archi
     edge_colors, edge_widths = [], []
@@ -165,7 +169,7 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
         u_t = (u,) if isinstance(u, int) else tuple(u)
         v_t = (v,) if isinstance(v, int) else tuple(v)
         if tuple(sorted((u_t, v_t))) in reduced_edges:
-            edge_colors.append("green")
+            edge_colors.append("purple")
             edge_widths.append(0.5)
         else:
             edge_colors.append("gray")
@@ -178,7 +182,8 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
                edge_widths=edge_widths,
                save_path=os.path.join(save_dir, f"exp_{exp_id}_physical.png"),
                dwave_draw=physical_dwave,
-               dwave_type=physical_metadata.get("type") if physical_metadata else None)
+               dwave_type=physical_metadata.get("type") if physical_metadata else None,
+               show_labels=show_labels)
 
     # ============================================================
     # EMBEDDING
@@ -203,7 +208,7 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
                   if ((p,) if isinstance(p, int) else tuple(p)) == n_tuple] if solution_map else []
 
         if n_tuple in reduced_nodes:
-            node_colors.append("lightgreen")
+            node_colors.append("plum")
         elif mapped:
             node_colors.append("lightblue")
         else:
@@ -221,7 +226,7 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
             edge_colors.append("aqua")
             edge_widths.append(0.5)
         elif edge in reduced_edges:
-            edge_colors.append("green")
+            edge_colors.append("purple")
             edge_widths.append(0.5)
         else:
             edge_colors.append("lightgray")
@@ -233,32 +238,89 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
                node_labels=labels,
                edge_colors=edge_colors,
                edge_widths=edge_widths,
-               save_path=os.path.join(save_dir, f"exp_{exp_id}_embedding.png"))
+               save_path=os.path.join(save_dir, f"exp_{exp_id}_embedding.png"),
+               show_labels=show_labels)
 
 
 # ================================================================
 # NO EMBEDDING
 # ================================================================
 def plot_noembedding(G_logical, G_physical, save_dir, exp_id,
+                     reduced_file=None,
                      logical_metadata=None, physical_metadata=None,
-                     logical_dwave=False, physical_dwave=False):
+                     logical_dwave=False, physical_dwave=False, show_labels=False):
 
     ensure_dir(save_dir)
 
+    # ============================================================
+    # GRAFO RIDOTTO 
+    # ============================================================
+    reduced_nodes = set()
+    reduced_edges = set()
+
+    if reduced_file and os.path.isfile(reduced_file):
+        with open(reduced_file, "r") as f:
+            data = json.load(f)
+
+        for n in data.get("nodes", []):
+            if isinstance(n, int):
+                reduced_nodes.add((n,))
+            else:
+                reduced_nodes.add(tuple(int(x) for x in n))
+
+        for u_raw, v_raw in data.get("edges", []):
+            u = (u_raw,) if isinstance(u_raw, int) else tuple(int(x) for x in u_raw)
+            v = (v_raw,) if isinstance(v_raw, int) else tuple(int(x) for x in v_raw)
+            reduced_edges.add(tuple(sorted((u, v))))
+
+    # ============================================================
+    # LOGICAL GRAPH
+    # ============================================================
     pos_log, dim_log = compute_positions(G_logical, logical_metadata, dwave_generated=logical_dwave)
-    plot_graph(G_logical, pos_log, dim_log,
-               title="Logical Graph",
-               node_colors=['skyblue'] * len(G_logical.nodes()),
-               save_path=os.path.join(save_dir, f"exp_{exp_id}_logical.png"),
-               dwave_draw=logical_dwave,
-               dwave_type=logical_metadata.get("type") if logical_metadata else None)
+    plot_graph(
+        G_logical, pos_log, dim_log,
+        title="Logical Graph",
+        node_colors=['skyblue'] * len(G_logical.nodes()),
+        save_path=os.path.join(save_dir, f"exp_{exp_id}_logical.png"),
+        dwave_draw=logical_dwave,
+        dwave_type=logical_metadata.get("type") if logical_metadata else None,
+        show_labels=show_labels
+    )
 
+    # ============================================================
+    # PHYSICAL GRAPH — COLORI BASATI SU RIDOTTO
+    # ============================================================
     pos_phys, dim_phys = compute_positions(G_physical, physical_metadata, dwave_generated=physical_dwave)
-    plot_graph(G_physical, pos_phys, dim_phys,
-               title="Physical Graph",
-               node_colors=['lightgreen'] * len(G_physical.nodes()),
-               save_path=os.path.join(save_dir, f"exp_{exp_id}_physical.png"),
-               dwave_draw=physical_dwave,
-               dwave_type=physical_metadata.get("type") if physical_metadata else None)
 
-    print(f"[INFO] Saved logical and physical plots (no embedding) to {save_dir}")
+    node_colors = []
+    for n in G_physical.nodes():
+        n_tuple = (n,) if isinstance(n, int) else tuple(n)
+        node_colors.append("plum" if n_tuple in reduced_nodes else "lightgray")
+
+    edge_colors = []
+    edge_widths = []
+    for u, v in G_physical.edges():
+        u_t = (u,) if isinstance(u, int) else tuple(u)
+        v_t = (v,) if isinstance(v, int) else tuple(v)
+        edge = tuple(sorted((u_t, v_t)))
+
+        if edge in reduced_edges:
+            edge_colors.append("purple")
+            edge_widths.append(0.7)
+        else:
+            edge_colors.append("gray")
+            edge_widths.append(0.5)
+
+    plot_graph(
+        G_physical, pos_phys, dim_phys,
+        title="Physical Graph (Reduced Highlighted)",
+        node_colors=node_colors,
+        edge_colors=edge_colors,
+        edge_widths=edge_widths,
+        save_path=os.path.join(save_dir, f"exp_{exp_id}_physical.png"),
+        dwave_draw=physical_dwave,
+        dwave_type=physical_metadata.get("type") if physical_metadata else None,
+        show_labels=show_labels
+    )
+
+    print(f"[INFO] Saved logical and physical plots (with reduced colors) to {save_dir}")
