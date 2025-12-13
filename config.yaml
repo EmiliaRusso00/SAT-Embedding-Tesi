@@ -247,33 +247,45 @@ experiments:
 #  check_treewidth: false
 #  generate_full_and_reduced: true
 
-#minorminer chain=1
- - id: 20
-   logical_graph: graphs/clique4.txt
-   logical_graph_json: graphs/clique4.json
-   physical_graph: graphs/pegasus2.txt
-   physical_graph_json: graphs/pegasus2.json
-   reduce_physical_graph: outputs/20/reduced/reduced_physical_20.json
-   max_chain_length: 1
-   allow_shared_physical_qubits: false  
-   timeout_seconds: 300
-   check_treewidth: false
-   generate_full_and_reduced: true
-   chain_max: 1
+##minorminer chain=1
+# - id: 20
+#   logical_graph: graphs/clique4.txt
+#   logical_graph_json: graphs/clique4.json
+#   physical_graph: graphs/pegasus2.txt
+#   physical_graph_json: graphs/pegasus2.json
+#   reduce_physical_graph: outputs/20/reduced/reduced_physical_20.json
+#   max_chain_length: 1
+#   allow_shared_physical_qubits: false  
+#   timeout_seconds: 300
+#   check_treewidth: false
+#   generate_full_and_reduced: true
+#   chain_max: 1
+#
+##minorminer chain=2
+# - id: 21
+#   logical_graph: graphs/clique5.txt
+#   logical_graph_json: graphs/clique5.json
+#   physical_graph: graphs/pegasus2.txt
+#   physical_graph_json: graphs/pegasus2.json
+#   reduce_physical_graph: outputs/21/reduced/reduced_physical_21.json
+#   max_chain_length: 1
+#   allow_shared_physical_qubits: false
+#   timeout_seconds: 300
+#   check_treewidth: false
+#   generate_full_and_reduced: true
+#   chain_max: 2
 
-#minorminer chain=2
- - id: 21
-   logical_graph: graphs/clique5.txt
-   logical_graph_json: graphs/clique5.json
-   physical_graph: graphs/pegasus2.txt
-   physical_graph_json: graphs/pegasus2.json
-   reduce_physical_graph: outputs/21/reduced/reduced_physical_21.json
-   max_chain_length: 1
-   allow_shared_physical_qubits: false
-   timeout_seconds: 300
-   check_treewidth: false
-   generate_full_and_reduced: true
-   chain_max: 2
+  - id: 22
+    logical_graph: graphs/clique5.txt
+    logical_graph_json: graphs/clique5.json
+    physical_graph: graphs/chimera3x3x4.txt
+    physical_graph_json: graphs/chimera3x3x4.json
+    reduce_physical_graph: outputs/22/reduced/reduced_physical_22.json
+    max_chain_length: 1
+    allow_shared_physical_qubits: false
+    timeout_seconds: 30
+    check_treewidth: false
+    generate_full_and_reduced: true
 
 output_dir: outputs
 solver: glucose
