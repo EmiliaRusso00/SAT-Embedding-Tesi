@@ -1,214 +1,161 @@
+import json
+import time
+import yaml
+import os
 import networkx as nx
 import minorminer
-import dwave_networkx as dnx
-
-DWAVE_AVAILABLE = True
 
 # ---------------------------------------------------------
-# GENERATORI STANDARD
+# NORMALIZZAZIONE NODI
 # ---------------------------------------------------------
-def gen_random_graph(n, p=0.3):
-    return nx.erdos_renyi_graph(n, p)
-
-def gen_tree(n):
-    return nx.random_labeled_tree(n)
-
-def gen_grid_2d(m, n):
-    return nx.grid_2d_graph(m, n)
-
-def gen_grid_3d(m, n, p):
-    return nx.grid_graph(dim=[m, n, p])
-
-def gen_clique(n):
-    return nx.complete_graph(n)
-
-def gen_bipartite(a, b):
-    return nx.complete_bipartite_graph(a, b)
-
-def gen_star(n):
-    return nx.star_graph(n)
-
-def gen_cycle(n):
-    return nx.cycle_graph(n)
-
-def gen_line(n):
-    return nx.path_graph(n)
-
-def gen_small_world(n, k, p):
-    return nx.watts_strogatz_graph(n, k, p)
-
-def gen_scale_free(n):
-    return nx.barabasi_albert_graph(n, m=2)
-
+def normalize_node(n):
+    if isinstance(n, tuple):
+        return n
+    if isinstance(n, list):
+        return tuple(n)
+    return (n,)
 
 # ---------------------------------------------------------
-# GENERATORI D-WAVE
+# CARICATORE GRAFO JSON DEFINITIVO
 # ---------------------------------------------------------
-def gen_chimera(M, N, L):
-    return dnx.chimera_graph(M, N, L)
+def load_graph_json(path):
+    """
+    Carica grafo JSON esportato da NetworkX/D-Wave.
+    Gestisce:
+      - nodi semplici (int, string, tuple)
+      - nodi con attributi [node, dict]
+    """
+    with open(path, 'r') as f:
+        data = json.load(f)
 
-def gen_pegasus(m):
-    return dnx.pegasus_graph(m)
+    G = nx.Graph()
 
-def gen_zephyr(m, t):
-    return dnx.zephyr_graph(m, t)
+    # nodi
+    for n in data["nodes"]:
+        if isinstance(n, list) and len(n) == 2 and isinstance(n[1], dict):
+            # nodo con attributi
+            G.add_node(n[0], **n[1])
+        else:
+            # nodo semplice (tuple, int, string)
+            G.add_node(tuple(n) if isinstance(n, list) else n)
 
+    # archi
+    for e in data["edges"]:
+        if isinstance(e, list) and len(e) == 3:
+            G.add_edge(e[0], e[1], **e[2])
+        else:
+            u = tuple(e[0]) if isinstance(e[0], list) else e[0]
+            v = tuple(e[1]) if isinstance(e[1], list) else e[1]
+            G.add_edge(u, v)
 
-# ---------------------------------------------------------
-# MENU PER SCELTA GRAFO LOGICO
-# ---------------------------------------------------------
-def choose_logical_graph():
-
-    print("\n=== SCEGLI IL GRAFO LOGICO ===")
-    types = {
-        "1": "random",
-        "2": "tree",
-        "3": "grid2d",
-        "4": "grid3d",
-        "5": "clique",
-        "6": "bipartite",
-        "7": "star",
-        "8": "cycle",
-        "9": "line",
-        "10": "smallworld",
-        "11": "scalefree"
-    }
-
-    for k, v in types.items():
-        print(f"{k}) {v}")
-
-    choice = input("\nScelta: ")
-    G = None
-
-    if choice == "1":
-        n = int(input("Numero nodi: "))
-        p = float(input("Probabilità arco: "))
-        G = gen_random_graph(n, p)
-
-    elif choice == "2":
-        n = int(input("Numero nodi: "))
-        G = gen_tree(n)
-
-    elif choice == "3":
-        m = int(input("Righe: "))
-        n = int(input("Colonne: "))
-        G = gen_grid_2d(m, n)
-
-    elif choice == "4":
-        x = int(input("X: "))
-        y = int(input("Y: "))
-        z = int(input("Z: "))
-        G = gen_grid_3d(x, y, z)
-
-    elif choice == "5":
-        n = int(input("Numero nodi: "))
-        G = gen_clique(n)
-
-    elif choice == "6":
-        a = int(input("Lato A: "))
-        b = int(input("Lato B: "))
-        G = gen_bipartite(a, b)
-
-    elif choice == "7":
-        n = int(input("Numero foglie: "))
-        G = gen_star(n)
-
-    elif choice == "8":
-        n = int(input("Numero nodi: "))
-        G = gen_cycle(n)
-
-    elif choice == "9":
-        n = int(input("Numero nodi: "))
-        G = gen_line(n)
-
-    elif choice == "10":
-        n = int(input("Numero nodi: "))
-        k = int(input("Num. vicini: "))
-        p = float(input("Probabilità rewiring: "))
-        G = gen_small_world(n, k, p)
-
-    elif choice == "11":
-        n = int(input("Numero nodi: "))
-        G = gen_scale_free(n)
-
-    else:
-        print("Scelta non valida")
-        return None
+    # attributi globali
+    if "graph_attributes" in data:
+        G.graph.update(data["graph_attributes"])
 
     return G
 
-
 # ---------------------------------------------------------
-# MENU PER SCELTA GRAFO FISICO (D-WAVE)
+# ESECUZIONE MINORMINER SU UN ESPERIMENTO
 # ---------------------------------------------------------
-def choose_physical_graph():
+def run_minorminer_experiment(exp, output_base):
+    logical_path = exp["logical_graph_json"]
+    physical_path = exp["physical_graph_json"]
+    exp_id = exp["id"]
 
-    print("\n=== SCEGLI IL GRAFO FISICO (D-WAVE) ===")
+    print(f"\n[ MM ] Esperimento {exp_id}")
 
-    types = {
-        "1": "chimera",
-        "2": "pegasus",
-        "3": "zephyr"
+    # carica grafi
+    G_logical = load_graph_json(logical_path)
+    G_physical = load_graph_json(physical_path)
+
+    start = time.perf_counter()
+
+    # embedding minorminer
+    embedding = minorminer.find_embedding(
+        G_logical.edges(),
+        G_physical.edges(),
+        timeout=exp.get("timeout_seconds", 10),
+        tries=100,
+        random_seed=123
+    )
+
+    elapsed = time.perf_counter() - start
+
+    result = {
+        "experiment_id": exp_id,
+        "success": bool(embedding),
+        "time_seconds": elapsed,
+        "num_logical_nodes": G_logical.number_of_nodes(),
+        "num_physical_nodes": G_physical.number_of_nodes(),
+        "embedding": {},
+        "max_chain_length": None,
+        "avg_chain_length": None,
+        "used_edges": []  # salveremo qui gli archi fisici usati
     }
 
-    for k, v in types.items():
-        print(f"{k}) {v}")
+    if embedding:
+        chains = list(embedding.values())
+        lengths = [len(c) for c in chains]
 
-    choice = input("\nScelta: ")
-    C = None
+        result["embedding"] = {str(k): list(v) for k, v in embedding.items()}
+        result["max_chain_length"] = max(lengths)
+        result["avg_chain_length"] = sum(lengths) / len(lengths)
 
-    if choice == "1":
-        M = int(input("Celle M: "))
-        N = int(input("Celle N: "))
-        L = int(input("Bipartizione L (tipico 4): "))
-        C = gen_chimera(M, N, L)
+        # ---------------------------------------------------------
+        # CALCOLO ARCHI FISICI USATI (per plot)
+        # ---------------------------------------------------------
+        used_edges = set()
+        for u_log, v_log in G_logical.edges():
+            if u_log in embedding and v_log in embedding:
+                # prendi solo il primo nodo della catena (chain1)
+                u_phys = normalize_node(list(embedding[u_log])[0])
+                v_phys = normalize_node(list(embedding[v_log])[0])
+                used_edges.add(tuple(sorted((u_phys, v_phys))))
+        result["used_edges"] = list(used_edges)
 
-    elif choice == "2":
-        m = int(input("Dimensione m: "))
-        C = gen_pegasus(m)
+    # crea cartella output
+    out_dir = os.path.join(output_base, str(exp_id))
+    os.makedirs(out_dir, exist_ok=True)
 
-    elif choice == "3":
-        m = int(input("Dimensione m: "))
-        t = int(input("Bipartizione t: "))
-        C = gen_zephyr(m, t)
+    # salva embedding minorminer
+    out_path = os.path.join(out_dir, "minorminer_result.json")
+    with open(out_path, "w") as f:
+        json.dump(result, f, indent=2)
 
-    else:
-        print("Scelta non valida")
-        return None
+    print(f"[ MM ] Successo: {result['success']} | "
+          f"Tempo: {elapsed:.4f}s | "
+          f"Max chain: {result['max_chain_length']} | "
+          f"Archi fisici usati: {len(used_edges)}")
 
-    return C
-
+    return result
 
 # ---------------------------------------------------------
-# MAIN FLOW
+# MAIN
 # ---------------------------------------------------------
 def main():
+    yaml_path = "config.yaml"  # percorso del tuo YAML
 
-    logical = choose_logical_graph()
-    if logical is None:
-        return
+    with open(yaml_path, "r") as f:
+        config = yaml.safe_load(f)
 
-    physical = choose_physical_graph()
-    if physical is None:
-        return
+    experiments = config["experiments"]
+    output_base = config.get("output_dir", "outputs")
 
-    print("\n=== AVVIO MINOR MINER ===")
-    print("Embedding in corso...")
+    print("\n=== AVVIO ESPERIMENTI MINORMINER ===")
 
-    embedding = minorminer.find_embedding(
-    logical.edges(),
-    physical.edges(),
-    tries=100,
-    timeout=10,
-    random_seed=123
-)
+    summary = []
 
-    if embedding:
-        print("\nEmbedding trovato ✔")
-        max_chain = max(len(chain) for chain in embedding.values())
-        print("Lunghezza massima chain:", max_chain)
-    else:
-        print("\nEmbedding NON trovato ✘")
+    for exp in experiments:
+        res = run_minorminer_experiment(exp, output_base)
+        summary.append(res)
+
+    # Salva riepilogo globale
+    summary_path = os.path.join(output_base, "minorminer_summary.json")
+    with open(summary_path, "w") as f:
+        json.dump(summary, f, indent=2)
+
+    print("\n=== COMPLETATO ===")
+    print(f"Riepilogo salvato in {summary_path}")
 
 
 if __name__ == "__main__":

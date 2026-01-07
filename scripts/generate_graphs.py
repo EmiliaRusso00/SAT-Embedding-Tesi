@@ -127,6 +127,23 @@ def gen_small_world(n, k, p):
 def gen_scale_free(n):
     return nx.barabasi_albert_graph(n, m=2)
 
+def gen_fan(n):
+    """
+    Crea un fan graph con n raggi (n >= 2)
+    Un fan graph è un path di n nodi più un nodo centrale collegato a tutti i nodi del path
+    """
+    if n < 2:
+        raise ValueError("Fan graph must have at least 2 nodes")
+    
+    G = nx.path_graph(n)          # path di n nodi
+    center = n                    # nodo centrale
+    G.add_node(center)
+    for i in range(n):
+        G.add_edge(center, i)
+    return G
+
+def gen_wheel(n):
+    return nx.wheel_graph(n)
 
 # ---------------------------------------------------------
 # GENERATORI D-WAVE
@@ -167,9 +184,11 @@ def main():
         "9": "line",
         "10": "smallworld",
         "11": "scalefree",
-        "12": "chimera",
-        "13": "pegasus",
-        "14": "zephyr"
+        "12": "fan",
+        "13": "wheel",
+        "14": "chimera",
+        "15": "pegasus",
+        "16": "zephyr"
     }
 
     for k, v in types.items():
@@ -244,18 +263,28 @@ def main():
         metadata = {"type": "scalefree", "n": n}
 
     elif choice == "12":
+        n = int(input("Numero nodi: "))
+        G = gen_fan(n)
+        metadata = {"type": "fan", "n": n}
+    
+    elif choice == "13":
+        n = int(input("Numero nodi: "))
+        G = gen_wheel(n)
+        metadata = {"type": "wheel", "n": n}
+
+    elif choice == "14":
         M = int(input("M (righe celle): "))
         N = int(input("N (colonne celle): "))
         L = int(input("L (dimensione bipartizione, tipicamente 4): "))
         G = gen_chimera(M, N, L)
         metadata = {"type": "chimera", "rows": M, "cols": N, "tile": L, "original_dwave_graph": True}
 
-    elif choice == "13":
+    elif choice == "15":
         m = int(input("Dimensione m (es. 2..16): "))
         G = gen_pegasus(m)
         metadata = {"type": "pegasus", "m": m,"original_dwave_graph": True}
 
-    elif choice == "14":
+    elif choice == "16":
         m = int(input("Dimensione m (es. 3..20): "))
         t = int(input("Dimensione bipartizione t (tipicamente 4): "))
         G = gen_zephyr(m, t)
