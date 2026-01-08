@@ -126,7 +126,7 @@ def load_mm_result(exp_id, mode=None):
         for chain in mm.get("embedding", {}).values():
             for n in chain:
                 mm_nodes.add(normalize_node(n))
-        for u, v in mm.get("used_edges", []):
+        for u, v in mm.get("physical_edges_logical", []):
             mm_edges.add(tuple(sorted((normalize_node(u), normalize_node(v)))))
     return mm_nodes, mm_edges
 

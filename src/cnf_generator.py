@@ -206,11 +206,8 @@ class CNFGenerator:
         
         # -------------------------
         # Centro logico e grado richiesto
-        # -------------------------
-        try:
-            logical_center = nx.center(G_log)[0]
-        except Exception:
-            logical_center = max(G_log.degree(), key=lambda x: x[1])[0]
+        # ------------------------
+        logical_center = nx.center(G_log)[0]
         min_degree_required = G_log.degree(logical_center)
         
         print(f"[INFO] Nodo centrale logico: {logical_center} con grado {min_degree_required}")
@@ -218,47 +215,29 @@ class CNFGenerator:
         # -------------------------
         # Centro fisico con grado compatibile
         # -------------------------
-        try:
-            physical_centers = nx.center(G_comp)
-            candidate_centers = [n for n in physical_centers if G_comp.degree(n) >= min_degree_required]
-        except Exception:
-            candidate_centers = [n for n, d in G_comp.degree() if d >= min_degree_required]
-        
-        if candidate_centers:
-            physical_center = candidate_centers[0]
-        else:
-            high_deg_nodes = [n for n, d in G_comp.degree() if d >= min_degree_required]
-            physical_center = high_deg_nodes[0] if high_deg_nodes else max(G_comp.degree(), key=lambda x: x[1])[0]
+        physical_center = nx.center(G_comp)[0]
 
         print(f"[INFO] Nodo centrale fisico selezionato: {physical_center} con grado {G_comp.degree(physical_center)}")
         
-        # -------------------------
-        # Diametro logico = raggio fisico
-        # -------------------------
-        if len(G_log) > 1:
-            d_log = nx.diameter(G_log)
-        else:
-            d_log = 0
 
-        print(f"[INFO] Diametro logico stimato: {d_log}")
+        shortest_paths_log = nx.single_source_shortest_path_length(G_log, logical_center)
+        max_dist_log = max(shortest_paths_log.values())
+        print(f"[INFO] Distanza massima dal centro logico: {max_dist_log}")
+
+       
+        distances_phys = nx.single_source_shortest_path_length(G_comp, physical_center)
+
         
-        # -------------------------
-        # BFS dal centro fisico e selezione nodi entro distanza <= d_log
-        # -------------------------
-        distances = nx.single_source_shortest_path_length(G_comp, physical_center)
-
-        R = math.ceil(d_log/2)   # raggio fisico = diametro logico
-        chosen_nodes = [n for n, dist in distances.items() if dist <= R]
+        chosen_nodes = [n for n, dist in distances_phys.items() if dist <= max_dist_log]
 
         G_sub = G_comp.subgraph(chosen_nodes).copy()
-
         if len(G_sub) < len(G_log):
             print(f"[WARN] Sottografo ridotto ha {len(G_sub)} nodi < |V_log|={len(G_log)}; potrebbe non essere embeddabile senza espansione.")
             
-        print(f"[INFO] Sottografo fisico finale: {len(G_sub)} nodi selezionati entro distanza {R}.")
+        print(f"[INFO] Sottografo fisico finale: {len(G_sub)} nodi selezionati entro distanza {max_dist_log}.")
         print(f"[INFO] Nodo centrale fisico: {physical_center}, nodo centrale logico: {logical_center}")
 
-        return G_sub, physical_center, logical_center, R
+        return G_sub, physical_center, logical_center, max_dist_log
 
 
     # -------------------------
