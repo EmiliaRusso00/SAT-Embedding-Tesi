@@ -11,7 +11,9 @@ try:
 except ImportError:
     DWAVE_AVAILABLE = False
 
-
+# ---------------------------------------------------------
+# NORMALIZZAZIONE NODI
+# ---------------------------------------------------------
 def normalize_node(n):
     if isinstance(n, tuple):
         return n
@@ -24,7 +26,6 @@ def normalize_node(n):
 # ================================================================
 def compute_positions(G, metadata=None, dwave_generated=False):
     nodes = list(G.nodes())
-
     if DWAVE_AVAILABLE and metadata and dwave_generated:
         gtype = metadata.get("type", "").lower()
         try:
@@ -39,17 +40,14 @@ def compute_positions(G, metadata=None, dwave_generated=False):
                 return dnx.zephyr_layout(G_dwave), 2
         except Exception as e:
             print(f"[WARN] Non posso generare layout {gtype} originale: {e}. Uso spring_layout fallback.")
-
     if all(isinstance(n, tuple) and len(n) == 2 for n in nodes):
         return {n: (n[0], n[1]) for n in nodes}, 2
     if all(isinstance(n, tuple) and len(n) == 3 for n in nodes):
         return {n: (n[0], n[1], n[2]) for n in nodes}, 3
-
     return nx.spring_layout(G, seed=42), 2
 
-
 # ================================================================
-# PLOT GRAFICO GENERICO 2D/3D
+# PLOTTING GENERICO
 # ================================================================
 def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
                node_labels=None, edge_colors=None, edge_widths=None,
@@ -57,40 +55,28 @@ def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
                show_labels=False):
 
     ensure_dir(os.path.dirname(save_path) if save_path else ".")
-
-    fig = plt.figure(figsize=figsize)  # creo sempre la figura
+    fig = plt.figure(figsize=figsize)
     try:
-        # ------------------------
-        # D-WAVE DRAW
-        # ------------------------
         if dwave_draw and DWAVE_AVAILABLE and dwave_type:
             try:
                 if dwave_type == "chimera":
                     draw_chimera(G, node_size=10, node_color=node_colors or 'lightblue', edge_color=edge_colors or 'black')
                 elif dwave_type == "pegasus":
-                    draw_pegasus(G, node_size=10, node_color=node_colors or 'lightcoral', edge_color=edge_colors or 'black')
+                    draw_pegasus(G, crosses=True, node_size=10, node_color=node_colors or 'lightcoral', edge_color=edge_colors or 'black')
                 elif dwave_type == "zephyr":
                     draw_zephyr(G, node_size=10, node_color=node_colors or 'mediumpurple', edge_color=edge_colors or 'black')
-
                 plt.title(title)
-
-                # etichette opzionali
                 if show_labels:
                     if node_labels is None:
                         node_labels = {n: str(n) for n in G.nodes()}
                     pos_for_labels = pos if pos is not None else nx.spring_layout(G, seed=42)
                     nx.draw_networkx_labels(G, pos_for_labels, labels=node_labels, font_color='black', font_weight='bold', font_size=6)
-
                 if save_path:
                     plt.savefig(save_path, bbox_inches="tight", dpi=400)
-                return  # esco, plt.close(fig) verrà eseguito nel finally
-
+                return
             except ValueError:
-                print(f"[WARN] draw_{dwave_type} richiede grafo originale. Uso NetworkX draw fallback.")
+                print(f"[WARN] draw_{dwave_type} richiede grafo originale. Uso NetworkX fallback.")
 
-        # ------------------------
-        # FALLBACK NETWORKX
-        # ------------------------
         if node_labels is None:
             node_labels = {n: str(n) for n in G.nodes()}
         if edge_colors is None:
@@ -125,126 +111,88 @@ def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
 
         if save_path:
             plt.savefig(save_path, bbox_inches="tight", dpi=400)
-
     finally:
-        # chiudo sempre la figura per liberare memoria
         plt.close(fig)
 
-
+# ================================================================
+# CARICAMENTO MINORMINER
+# ================================================================
+def load_mm_result(exp_id, mode=None):
+    mm_path = os.path.join("outputs", str(exp_id), mode, "minorminer_result.json")
+    mm_nodes, mm_edges = set(), set()
+    if os.path.isfile(mm_path):
+        with open(mm_path, "r") as f:
+            mm = json.load(f)
+        for chain in mm.get("embedding", {}).values():
+            for n in chain:
+                mm_nodes.add(normalize_node(n))
+        for u, v in mm.get("used_edges", []):
+            mm_edges.add(tuple(sorted((normalize_node(u), normalize_node(v)))))
+    return mm_nodes, mm_edges
 
 # ================================================================
-# PLOT EMBEDDING CON NODI RIDOTTI
+# PLOT FISICO + EMBEDDING (FULL o REDUCED)
 # ================================================================
 def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
                    reduced_file=None, logical_metadata=None, physical_metadata=None,
-                   logical_dwave=False, physical_dwave=False, show_labels=False):
+                   logical_dwave=False, physical_dwave=False, show_labels=False,
+                   mode=None):
 
     ensure_dir(save_dir)
 
-# ============================================================
-# CARICAMENTO RIDOTTO — VERSIONE CORRETTA (unica)
-# ============================================================
-    reduced_nodes = set()
-    reduced_edges = set()
-
+    # ------------------------------------------------------------
+    # GRAFO RIDOTTO SAT
+    # ------------------------------------------------------------
+    reduced_nodes, reduced_edges = set(), set()
     if reduced_file and os.path.isfile(reduced_file):
         with open(reduced_file, "r") as f:
             data = json.load(f)
-
         for n in data.get("nodes", []):
-            if isinstance(n, int):
-                reduced_nodes.add((n,))
-            else:
-                reduced_nodes.add(tuple(int(x) for x in n))
+            reduced_nodes.add((n,) if isinstance(n, int) else tuple(n))
+        for u, v in data.get("edges", []):
+            u_t = (u,) if isinstance(u, int) else tuple(u)
+            v_t = (v,) if isinstance(v, int) else tuple(v)
+            reduced_edges.add(tuple(sorted((u_t, v_t))))
 
-        for e in data.get("edges", []):
-            u_raw, v_raw = e
-            u = (u_raw,) if isinstance(u_raw, int) else tuple(int(x) for x in u_raw)
-            v = (v_raw,) if isinstance(v_raw, int) else tuple(int(x) for x in v_raw)
-            reduced_edges.add(tuple(sorted((u, v))))
+    # ------------------------------------------------------------
+    # MINORMINER SOLO DEL TIPO SELEZIONATO
+    # ------------------------------------------------------------
+    
+    mm_nodes, mm_edges = load_mm_result(exp_id, mode=mode)
 
-
-# ------------------------------------------------------------
-# MINORMINER RESULT
-# ------------------------------------------------------------
-
-    mm_nodes, mm_edges = set(), set()
-    mm_path = os.path.join("outputs", str(exp_id), "minorminer_result.json")
-
-    if os.path.isfile(mm_path):
-        with open(mm_path) as f:
-            mm = json.load(f)
-
-        # --- NODI fisici occupati ---
-        for chain in mm.get("embedding", {}).values():
-            chain_nodes = [normalize_node(x) for x in chain]
-            for n in chain_nodes:
-                mm_nodes.add(n)
-        # --- Archi fisici usati (dal campo saved used_edges) ---
-        for e in mm.get("used_edges", []):
-            u, v = e
-            mm_edges.add((normalize_node(u), normalize_node(v)))
-# ============================================================
-# LOGICAL PLOT
-# ============================================================
+    # ------------------------------------------------------------
+    # POSIZIONI
+    # ------------------------------------------------------------
     pos_log, dim_log = compute_positions(G_logical, logical_metadata, dwave_generated=logical_dwave)
+    pos_phys, dim_phys = compute_positions(G_physical, physical_metadata, dwave_generated=physical_dwave)
 
-    plot_graph(G_logical, pos_log, dim_log,
-               title="Logical Graph",
-               node_colors=['skyblue'] * len(G_logical.nodes()),
-               save_path=os.path.join(save_dir, f"exp_{exp_id}_logical.png"),
-               dwave_draw=logical_dwave,
-               dwave_type=logical_metadata.get("type") if logical_metadata else None,
-               show_labels=show_labels)
-
-# ============================================================
-# PHYSICAL GRAPH — STRUTTURA + RIDOTTO + MINORMINER
-# ============================================================
-    pos_phys, dim_phys = compute_positions(
-        G_physical,
-        physical_metadata,
-        dwave_generated=physical_dwave
+    # ------------------------------------------------------------
+    # LOGICAL
+    # ------------------------------------------------------------
+    plot_graph(
+        G_logical, pos_log, dim_log,
+        title=f"Logical Graph )",
+        node_colors=['skyblue'] * len(G_logical.nodes()),
+        save_path=os.path.join(save_dir, f"exp_{exp_id}_logical.png"),
+        dwave_draw=logical_dwave,
+        dwave_type=logical_metadata.get("type") if logical_metadata else None,
+        show_labels=show_labels
     )
 
-    # ------------------------
-    # NODI
-    # ------------------------
-    node_colors = []
-
+    # ------------------------------------------------------------
+    # PHYSICAL SOLO + RIDOTTO
+    # ------------------------------------------------------------
+    node_colors, edge_colors, edge_widths = [], [], []
     for n in G_physical.nodes():
         nt = normalize_node(n)
-
-        if nt in mm_nodes:
-            node_colors.append("red")          # Minorminer
-        elif nt in reduced_nodes:
-            node_colors.append("plum")         # SAT ridotto
-        else:
-            node_colors.append("lightgray")    # inutilizzato
-
-    # ------------------------
-    # ARCHI
-    # ------------------------
-    edge_colors = []
-    edge_widths = []
-
+        node_colors.append("pink" if nt in reduced_nodes else "lightgray")
     for u, v in G_physical.edges():
         e = tuple(sorted((normalize_node(u), normalize_node(v))))
-
-        if e in mm_edges:
-            edge_colors.append("red")          # catena Minorminer
-            edge_widths.append(1.2)
-        elif e in reduced_edges:
-            edge_colors.append("purple")       # SAT ridotto
-            edge_widths.append(0.6)
-        else:
-            edge_colors.append("gray")
-            edge_widths.append(0.4)
-
+        edge_colors.append("pink" if e in reduced_edges else "gray")
+        edge_widths.append(0.6 if e in reduced_edges else 0.4)
     plot_graph(
-        G_physical,
-        pos_phys,
-        dim_phys,
-        title="Physical Graph (Minorminer + Reduced SAT)",
+        G_physical, pos_phys, dim_phys,
+        title=f"Physical Graph + Reduced)",
         node_colors=node_colors,
         edge_colors=edge_colors,
         edge_widths=edge_widths,
@@ -254,15 +202,11 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
         show_labels=show_labels
     )
 
-    # ============================================================
-    # EMBEDDING — LOGICAL → PHYSICAL
-    # ============================================================
-    labels = {}
+    # ------------------------------------------------------------
+    # EMBEDDING (MOSTRA TUTTO)
+    # ------------------------------------------------------------
+    node_colors, edge_colors, edge_widths, labels = [], [], [], {}
     used_edges = set()
-
-    # ------------------------
-    # ARCHI LOGICI USATI (SAT)
-    # ------------------------
     if solution_map:
         for u_log, v_log in G_logical.edges():
             if u_log in solution_map and v_log in solution_map:
@@ -270,56 +214,39 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
                 vp = normalize_node(solution_map[v_log])
                 used_edges.add(tuple(sorted((up, vp))))
 
-    # ------------------------
-    # NODI (EMBEDDING)
-    # ------------------------
-    node_colors = []
-    edge_colors = []
-    edge_widths = []
-
     for n in G_physical.nodes():
         nt = normalize_node(n)
-
-        mapped_logical = [
-            l for l, p in solution_map.items()
-            if normalize_node(p) == nt
-        ] if solution_map else []
+        mapped_logical = [l for l, p in solution_map.items() if normalize_node(p) == nt] if solution_map else []
 
         if nt in mm_nodes:
-            node_colors.append("red")           # Minorminer
+            node_colors.append("mediumseagreen")           # Minorminer
         elif mapped_logical:
-            node_colors.append("lightblue")     # SAT embedding
+            node_colors.append("blue")     # SAT embedding
         elif nt in reduced_nodes:
-            node_colors.append("plum")          # SAT ridotto
+            node_colors.append("pink")          # grafo ridotto SAT
         else:
             node_colors.append("lightgray")
 
         labels[n] = ",".join(map(str, mapped_logical)) if mapped_logical else str(n)
 
-    # ------------------------
-    # ARCHI (EMBEDDING)
-    # ------------------------
     for u, v in G_physical.edges():
         e = tuple(sorted((normalize_node(u), normalize_node(v))))
-
         if e in mm_edges:
-            edge_colors.append("red")
+            edge_colors.append("mediumseagreen")
             edge_widths.append(1.2)
         elif e in used_edges:
-            edge_colors.append("aqua")          # SAT embedding
-            edge_widths.append(0.6)
+            edge_colors.append("cornflowerblue")
+            edge_widths.append(1.2)
         elif e in reduced_edges:
-            edge_colors.append("purple")
-            edge_widths.append(0.5)
+            edge_colors.append("pink")
+            edge_widths.append(0.8)
         else:
             edge_colors.append("lightgray")
             edge_widths.append(0.4)
 
     plot_graph(
-        G_physical,
-        pos_phys,
-        dim_phys,
-        title="Embedding: Logical → Physical (SAT vs Minorminer)",
+        G_physical, pos_phys, dim_phys,
+        title=f"Embedding)",
         node_colors=node_colors,
         edge_colors=edge_colors,
         edge_widths=edge_widths,
@@ -330,18 +257,17 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
         show_labels=show_labels
     )
 
-# ================================================================
-# NO EMBEDDING
-# ================================================================
+
 def plot_noembedding(G_logical, G_physical, save_dir, exp_id,
                      reduced_file=None,
                      logical_metadata=None, physical_metadata=None,
-                     logical_dwave=False, physical_dwave=False, show_labels=False):
+                     logical_dwave=False, physical_dwave=False,
+                     show_labels=False):
 
     ensure_dir(save_dir)
 
     # ============================================================
-    # GRAFO RIDOTTO 
+    # GRAFO RIDOTTO (FISICO)
     # ============================================================
     reduced_nodes = set()
     reduced_edges = set()
@@ -351,24 +277,28 @@ def plot_noembedding(G_logical, G_physical, save_dir, exp_id,
             data = json.load(f)
 
         for n in data.get("nodes", []):
-            if isinstance(n, int):
-                reduced_nodes.add((n,))
-            else:
-                reduced_nodes.add(tuple(int(x) for x in n))
+            reduced_nodes.add(normalize_node(n))
 
-        for u_raw, v_raw in data.get("edges", []):
-            u = (u_raw,) if isinstance(u_raw, int) else tuple(int(x) for x in u_raw)
-            v = (v_raw,) if isinstance(v_raw, int) else tuple(int(x) for x in v_raw)
-            reduced_edges.add(tuple(sorted((u, v))))
+        for u, v in data.get("edges", []):
+            reduced_edges.add(
+                tuple(sorted((normalize_node(u), normalize_node(v))))
+            )
 
     # ============================================================
-    # LOGICAL GRAPH
+    # LOGICAL GRAPH (visualizzato neutro)
     # ============================================================
-    pos_log, dim_log = compute_positions(G_logical, logical_metadata, dwave_generated=logical_dwave)
+    pos_log, dim_log = compute_positions(
+        G_logical,
+        logical_metadata,
+        dwave_generated=logical_dwave
+    )
+
     plot_graph(
-        G_logical, pos_log, dim_log,
-        title="Logical Graph",
-        node_colors=['skyblue'] * len(G_logical.nodes()),
+        G_logical,
+        pos_log,
+        dim_log,
+        title="Logical Graph (No Embedding)",
+        node_colors=["skyblue"] * G_logical.number_of_nodes(),
         save_path=os.path.join(save_dir, f"exp_{exp_id}_logical.png"),
         dwave_draw=logical_dwave,
         dwave_type=logical_metadata.get("type") if logical_metadata else None,
@@ -376,39 +306,52 @@ def plot_noembedding(G_logical, G_physical, save_dir, exp_id,
     )
 
     # ============================================================
-    # PHYSICAL GRAPH — COLORI BASATI SU RIDOTTO
+    # PHYSICAL GRAPH — evidenzia SOLO il sottografo ridotto
     # ============================================================
-    pos_phys, dim_phys = compute_positions(G_physical, physical_metadata, dwave_generated=physical_dwave)
+    pos_phys, dim_phys = compute_positions(
+        G_physical,
+        physical_metadata,
+        dwave_generated=physical_dwave
+    )
 
+    # --- NODI ---
     node_colors = []
     for n in G_physical.nodes():
-        n_tuple = (n,) if isinstance(n, int) else tuple(n)
-        node_colors.append("plum" if n_tuple in reduced_nodes else "lightgray")
+        nt = normalize_node(n)
+        if nt in reduced_nodes:
+            node_colors.append("pink")
+        else:
+            node_colors.append("lightgray")
 
+    # --- ARCHI ---
     edge_colors = []
     edge_widths = []
     for u, v in G_physical.edges():
-        u_t = (u,) if isinstance(u, int) else tuple(u)
-        v_t = (v,) if isinstance(v, int) else tuple(v)
-        edge = tuple(sorted((u_t, v_t)))
-
-        if edge in reduced_edges:
-            edge_colors.append("purple")
-            edge_widths.append(0.7)
+        e = tuple(sorted((normalize_node(u), normalize_node(v))))
+        if e in reduced_edges:
+            edge_colors.append("pink")
+            edge_widths.append(0.9)
         else:
             edge_colors.append("gray")
-            edge_widths.append(0.5)
+            edge_widths.append(0.4)
 
+    # ============================================================
+    # PLOT FISICO (senza draw_* per supportare sottografi)
+    # ============================================================
     plot_graph(
-        G_physical, pos_phys, dim_phys,
-        title="Physical Graph (Reduced Highlighted)",
+        G_physical,
+        pos_phys,
+        dim_phys,
+        title="Physical Graph (Reduced Subgraph – No Embedding)",
         node_colors=node_colors,
         edge_colors=edge_colors,
         edge_widths=edge_widths,
         save_path=os.path.join(save_dir, f"exp_{exp_id}_physical.png"),
-        dwave_draw=physical_dwave,
-        dwave_type=physical_metadata.get("type") if physical_metadata else None,
+        dwave_draw=False,
         show_labels=show_labels
     )
 
-    print(f"[INFO] Saved logical and physical plots (with reduced colors) to {save_dir}")
+    print(
+        f"[INFO] NO-EMBEDDING plots saved to {save_dir} "
+        f"(reduced physical nodes: {len(reduced_nodes)}, edges: {len(reduced_edges)})"
+    )

@@ -16,16 +16,10 @@ def normalize_node(n):
     return (n,)
 
 # ---------------------------------------------------------
-# CARICATORE GRAFO JSON DEFINITIVO
+# CARICATORE GRAFO JSON
 # ---------------------------------------------------------
 def load_graph_json(path):
-    """
-    Carica grafo JSON esportato da NetworkX/D-Wave.
-    Gestisce:
-      - nodi semplici (int, string, tuple)
-      - nodi con attributi [node, dict]
-    """
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         data = json.load(f)
 
     G = nx.Graph()
@@ -39,50 +33,38 @@ def load_graph_json(path):
             # nodo semplice (tuple, int, string)
             G.add_node(tuple(n) if isinstance(n, list) else n)
 
-    # archi
-    for e in data["edges"]:
-        if isinstance(e, list) and len(e) == 3:
-            G.add_edge(e[0], e[1], **e[2])
-        else:
-            u = tuple(e[0]) if isinstance(e[0], list) else e[0]
-            v = tuple(e[1]) if isinstance(e[1], list) else e[1]
-            G.add_edge(u, v)
 
-    # attributi globali
-    if "graph_attributes" in data:
-        G.graph.update(data["graph_attributes"])
+    # archi
+    for u, v in data["edges"]:
+        u = tuple(u) if isinstance(u, list) else u
+        v = tuple(v) if isinstance(v, list) else v
+        G.add_edge(u, v)
+
+    # metadata opzionale
+    if "metadata" in data:
+        G.graph.update(data["metadata"])
 
     return G
 
 # ---------------------------------------------------------
-# ESECUZIONE MINORMINER SU UN ESPERIMENTO
+# RUN MINORMINER (FULL o REDUCED)
 # ---------------------------------------------------------
-def run_minorminer_experiment(exp, output_base):
-    logical_path = exp["logical_graph_json"]
-    physical_path = exp["physical_graph_json"]
-    exp_id = exp["id"]
-
-    print(f"\n[ MM ] Esperimento {exp_id}")
-
-    # carica grafi
-    G_logical = load_graph_json(logical_path)
-    G_physical = load_graph_json(physical_path)
+def run_minorminer(G_logical, G_physical, exp, mode, out_dir):
+    print(f"[ MM | {mode.upper()} ] Avvio")
 
     start = time.perf_counter()
 
-    # embedding minorminer
     embedding = minorminer.find_embedding(
         G_logical.edges(),
         G_physical.edges(),
-        timeout=exp.get("timeout_seconds", 10),
-        tries=100,
-        random_seed=123
+        timeout=exp.get("timeout_seconds", 30)
     )
 
     elapsed = time.perf_counter() - start
 
     result = {
-        "experiment_id": exp_id,
+        "experiment_id": exp["id"],
+        "mode": mode,
         "success": bool(embedding),
         "time_seconds": elapsed,
         "num_logical_nodes": G_logical.number_of_nodes(),
@@ -90,7 +72,7 @@ def run_minorminer_experiment(exp, output_base):
         "embedding": {},
         "max_chain_length": None,
         "avg_chain_length": None,
-        "used_edges": []  # salveremo qui gli archi fisici usati
+        "used_edges": []
     }
 
     if embedding:
@@ -101,31 +83,27 @@ def run_minorminer_experiment(exp, output_base):
         result["max_chain_length"] = max(lengths)
         result["avg_chain_length"] = sum(lengths) / len(lengths)
 
-        # ---------------------------------------------------------
-        # CALCOLO ARCHI FISICI USATI (per plot)
-        # ---------------------------------------------------------
         used_edges = set()
-        for u_log, v_log in G_logical.edges():
-            if u_log in embedding and v_log in embedding:
-                # prendi solo il primo nodo della catena (chain1)
-                u_phys = normalize_node(list(embedding[u_log])[0])
-                v_phys = normalize_node(list(embedding[v_log])[0])
+        for u, v in G_logical.edges():
+            if u in embedding and v in embedding:
+                u_phys = normalize_node(list(embedding[u])[0])
+                v_phys = normalize_node(list(embedding[v])[0])
                 used_edges.add(tuple(sorted((u_phys, v_phys))))
+
         result["used_edges"] = list(used_edges)
 
-    # crea cartella output
-    out_dir = os.path.join(output_base, str(exp_id))
     os.makedirs(out_dir, exist_ok=True)
-
-    # salva embedding minorminer
     out_path = os.path.join(out_dir, "minorminer_result.json")
+
     with open(out_path, "w") as f:
         json.dump(result, f, indent=2)
 
-    print(f"[ MM ] Successo: {result['success']} | "
-          f"Tempo: {elapsed:.4f}s | "
-          f"Max chain: {result['max_chain_length']} | "
-          f"Archi fisici usati: {len(used_edges)}")
+    print(
+        f"[ MM | {mode.upper()} ] Successo: {result['success']} | "
+        f"Tempo: {elapsed:.4f}s | "
+        f"Max chain: {result['max_chain_length']} | "
+        f"Archi usati: {len(result['used_edges'])}"
+    )
 
     return result
 
@@ -133,9 +111,7 @@ def run_minorminer_experiment(exp, output_base):
 # MAIN
 # ---------------------------------------------------------
 def main():
-    yaml_path = "config.yaml"  # percorso del tuo YAML
-
-    with open(yaml_path, "r") as f:
+    with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
     experiments = config["experiments"]
@@ -146,8 +122,27 @@ def main():
     summary = []
 
     for exp in experiments:
-        res = run_minorminer_experiment(exp, output_base)
-        summary.append(res)
+        exp_id = exp["id"]
+        print(f"\n=== ESPERIMENTO {exp_id} ===")
+
+        # carica grafo logico
+        G_logical = load_graph_json(exp["logical_graph_json"])
+
+        # ---------- FULL ----------
+        G_physical_full = load_graph_json(exp["physical_graph_json"])
+        full_dir = os.path.join(output_base, str(exp_id), "full")
+        res_full = run_minorminer(G_logical, G_physical_full, exp, "full", full_dir)
+        summary.append(res_full)
+
+        # ---------- REDUCED ----------
+        reduced_path = exp.get("reduce_physical_graph")
+        if reduced_path and os.path.isfile(reduced_path):
+            G_physical_reduce = load_graph_json(reduced_path)
+            reduce_dir = os.path.join(output_base, str(exp_id), "reduced")
+            res_reduce = run_minorminer(G_logical, G_physical_reduce, exp, "reduced", reduce_dir)
+            summary.append(res_reduce)
+        else:
+            print(f"[ MM | REDUCE ] File ridotto non trovato per esperimento {exp_id}")
 
     # Salva riepilogo globale
     summary_path = os.path.join(output_base, "minorminer_summary.json")

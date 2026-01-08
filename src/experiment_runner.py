@@ -85,6 +85,7 @@ def run_experiment(cfg, skip_reduction=False):
         plot_noembedding(
             G_log_json, G_phys_json, exp_dir, exp_id,
             logical_metadata=logical_metadata,
+            reduced_file=reduce_physical_file,
             physical_metadata=physical_metadata,
             logical_dwave=logical_dwave,
             physical_dwave=physical_dwave,
@@ -218,7 +219,8 @@ def run_experiment(cfg, skip_reduction=False):
             physical_metadata=physical_metadata,
             logical_dwave=logical_dwave,
             physical_dwave=physical_dwave,
-            show_labels=show_labels
+            show_labels=show_labels,
+            mode=variant
         )
     else:
         plot_noembedding(
