@@ -112,14 +112,14 @@ experiments:
 #     timeout_seconds: 3360
 #     generate_full_and_reduced: true
 #
-#   - id: 13
-#     logical_graph: graphs/zephyr1.txt
-#     logical_graph_json: graphs/zephyr1.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/13/reduced/reduced_physical_13.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
+#    - id: 13
+#      logical_graph: graphs/zephyr1.txt
+#      logical_graph_json: graphs/zephyr1.json
+#      physical_graph: graphs/zephyr2.txt
+#      physical_graph_json: graphs/zephyr2.json
+#      reduce_physical_graph: outputs/13/reduced/reduced_physical_13.json
+#      timeout_seconds: 3360
+#      generate_full_and_reduced: true
 #
 #   - id: 14
 #     logical_graph: graphs/zephyr1_46_254.txt
@@ -175,20 +175,20 @@ experiments:
 #     timeout_seconds: 3360
 #     generate_full_and_reduced: true
 #
-#   - id: 20
-#     logical_graph: graphs/zephyr_2tile.txt
-#     logical_graph_json: graphs/zephyr_2tile.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/20/reduced/reduced_physical_20.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
+#    - id: 20
+#      logical_graph: graphs/zephyr_2tile.txt
+#      logical_graph_json: graphs/zephyr_2tile.json
+#      physical_graph: graphs/zephyr2.txt
+#      physical_graph_json: graphs/zephyr2.json
+#      reduce_physical_graph: outputs/20/reduced/reduced_physical_20.json
+#      timeout_seconds: 3360
+#      generate_full_and_reduced: true
 
-   - id: 30
-     logical_graph: graphs/zephyr1.txt
-     logical_graph_json: graphs/zephyr1.json
-     physical_graph: graphs/zephyr3.txt
-     physical_graph_json: graphs/zephyr3.json
-     reduce_physical_graph: outputs/30/reduced/reduced_physical_30.json
-     timeout_seconds: 3360
-     generate_full_and_reduced: true
+    - id: 30
+      logical_graph: graphs/zephyr1.txt
+      logical_graph_json: graphs/zephyr1.json
+      physical_graph: graphs/zephyr3.txt
+      physical_graph_json: graphs/zephyr3.json
+      reduce_physical_graph: outputs/30/reduced/reduced_physical_30.json
+      timeout_seconds: 3360
+      generate_full_and_reduced: true

@@ -30,89 +30,7 @@ def run_experiment(cfg):
     physical_dwave = physical_metadata and physical_metadata.get("type", "").lower() in ("chimera", "pegasus", "zephyr")
 
     timeout = cfg.get("timeout_seconds", None)
-
-    # ============================================================
-    # VARIANTE 1: FULL GRAPH
-    # ============================================================
-    print("\n========== VARIANTE 1: FULL GRAPH ==========")
-    variant_full = "full"
-    exp_dir_full = os.path.join(exp_dir_base, variant_full)
-    ensure_dir(exp_dir_full)
-
-    t0_full = time.time()
-    sat_time_full = 0.0
-
-    gen_full = CNFGenerator(
-        G_log=G_log_txt,
-        G_phys=G_phys_txt,
-        G_log_json=G_log_json,
-        G_phys_json=G_phys_json,
-        exp_dir=exp_dir_full,
-        exp_id=exp_id,
-        skip_reduction=True
-    )
-
-    solution_map_full = None
-    num_vars_full = num_clauses_full = 0
-
-    if gen_full.embeddable:
-        num_vars_full, num_clauses_full = gen_full.generate()
-        dimacs_path_full = os.path.join(exp_dir_full, f"exp_{exp_id}_{variant_full}.cnf")
-        gen_full.write_dimacs(dimacs_path_full)
-
-        t_sat_start = time.time()
-        res_full = solve_dimacs_file(dimacs_path_full, timeout_seconds=timeout, cnf_gen=gen_full)
-        t_sat_end = time.time()
-        sat_time_full = t_sat_end - t_sat_start
-
-        if res_full.get("status") == "SAT" and res_full.get("model"):
-            rev = {vid: (i, a) for (i, a), vid in gen_full.var_map.items()}
-            solution_map_full = {
-                i: a for lit in res_full["model"] if lit > 0
-                for entry in [rev.get(lit)] if entry
-                for i, a in [entry]
-            }
-            print("[SUCCESS] Soluzione SAT trovata sul grafo completo")
-        else:
-            print("[INFO] Nessuna soluzione SAT sul grafo completo")
-    else:
-        print("[ERROR] Embedding impossibile sul grafo completo")
-
-    t1_full = time.time()
-    total_time_full = t1_full - t0_full
-
-    write_experiment_output(
-        exp_id, cfg, G_log_txt, G_phys_txt,
-        num_vars_full, num_clauses_full, "pairwise",
-        "glucose", total_time_full, sat_time_full,
-        "SAT" if solution_map_full else "UNSAT",
-        solution=[{"assignment": solution_map_full}] if solution_map_full else None,
-        output_dir=exp_dir_full
-    )
-
-    if solution_map_full:
-        plot_embedding(
-            G_log_json, G_phys_json,
-            solution_map_full, exp_dir_full, exp_id,
-            reduced_file=None,
-            logical_metadata=logical_metadata,
-            physical_metadata=physical_metadata,
-            logical_dwave=logical_dwave,
-            physical_dwave=physical_dwave,
-            show_labels=True,
-            mode=variant_full
-        )
-    else:
-        plot_noembedding(
-            G_log_json, G_phys_json, exp_dir_full, exp_id,
-            reduced_file=None,
-            logical_metadata=logical_metadata,
-            physical_metadata=physical_metadata,
-            logical_dwave=logical_dwave,
-            physical_dwave=physical_dwave,
-            show_labels=True
-        )
-
+    
     # ============================================================
     # VARIANTE 2: REDUCED GRAPH
     # ============================================================
@@ -219,6 +137,87 @@ def run_experiment(cfg):
 
     print("[INFO] Esperimento completato.")
 
+    # ============================================================
+    # VARIANTE 1: FULL GRAPH
+    # ============================================================
+    print("\n========== VARIANTE 1: FULL GRAPH ==========")
+    variant_full = "full"
+    exp_dir_full = os.path.join(exp_dir_base, variant_full)
+    ensure_dir(exp_dir_full)
+
+    t0_full = time.time()
+    sat_time_full = 0.0
+
+    gen_full = CNFGenerator(
+        G_log=G_log_txt,
+        G_phys=G_phys_txt,
+        G_log_json=G_log_json,
+        G_phys_json=G_phys_json,
+        exp_dir=exp_dir_full,
+        exp_id=exp_id,
+        skip_reduction=True
+    )
+
+    solution_map_full = None
+    num_vars_full = num_clauses_full = 0
+
+    if gen_full.embeddable:
+        num_vars_full, num_clauses_full = gen_full.generate()
+        dimacs_path_full = os.path.join(exp_dir_full, f"exp_{exp_id}_{variant_full}.cnf")
+        gen_full.write_dimacs(dimacs_path_full)
+
+        t_sat_start = time.time()
+        res_full = solve_dimacs_file(dimacs_path_full, timeout_seconds=timeout, cnf_gen=gen_full)
+        t_sat_end = time.time()
+        sat_time_full = t_sat_end - t_sat_start
+
+        if res_full.get("status") == "SAT" and res_full.get("model"):
+            rev = {vid: (i, a) for (i, a), vid in gen_full.var_map.items()}
+            solution_map_full = {
+                i: a for lit in res_full["model"] if lit > 0
+                for entry in [rev.get(lit)] if entry
+                for i, a in [entry]
+            }
+            print("[SUCCESS] Soluzione SAT trovata sul grafo completo")
+        else:
+            print("[INFO] Nessuna soluzione SAT sul grafo completo")
+    else:
+        print("[ERROR] Embedding impossibile sul grafo completo")
+
+    t1_full = time.time()
+    total_time_full = t1_full - t0_full
+
+    write_experiment_output(
+        exp_id, cfg, G_log_txt, G_phys_txt,
+        num_vars_full, num_clauses_full, "pairwise",
+        "glucose", total_time_full, sat_time_full,
+        "SAT" if solution_map_full else "UNSAT",
+        solution=[{"assignment": solution_map_full}] if solution_map_full else None,
+        output_dir=exp_dir_full
+    )
+
+    if solution_map_full:
+        plot_embedding(
+            G_log_json, G_phys_json,
+            solution_map_full, exp_dir_full, exp_id,
+            reduced_file=None,
+            logical_metadata=logical_metadata,
+            physical_metadata=physical_metadata,
+            logical_dwave=logical_dwave,
+            physical_dwave=physical_dwave,
+            show_labels=True,
+            mode=variant_full
+        )
+    else:
+        plot_noembedding(
+            G_log_json, G_phys_json, exp_dir_full, exp_id,
+            reduced_file=None,
+            logical_metadata=logical_metadata,
+            physical_metadata=physical_metadata,
+            logical_dwave=logical_dwave,
+            physical_dwave=physical_dwave,
+            show_labels=True
+        )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
