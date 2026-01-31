@@ -118,8 +118,10 @@ def plot_graph(G, pos=None, dim=2, title="Graph", node_colors=None,
 # CARICAMENTO MINORMINER
 # ================================================================
 def load_mm_result(exp_id, mode=None):
+    if mode is None:
+        return set(), set(), set()
     mm_path = os.path.join("outputs", str(exp_id), mode, "minorminer_result.json")
-    mm_nodes, mm_edges = set(), set()
+    mm_nodes, mm_edges, mm_edge_chain = set(), set(), set()
     if os.path.isfile(mm_path):
         with open(mm_path, "r") as f:
             mm = json.load(f)
@@ -128,7 +130,9 @@ def load_mm_result(exp_id, mode=None):
                 mm_nodes.add(normalize_node(n))
         for u, v in mm.get("physical_edges_logical", []):
             mm_edges.add(tuple(sorted((normalize_node(u), normalize_node(v)))))
-    return mm_nodes, mm_edges
+        for u, v in mm.get("physical_edges_chain", []):
+            mm_edge_chain.add(tuple(sorted((normalize_node(u), normalize_node(v)))))
+    return mm_nodes, mm_edges, mm_edge_chain
 
 # ================================================================
 # PLOT FISICO + EMBEDDING (FULL o REDUCED)
@@ -158,7 +162,7 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
     # MINORMINER SOLO DEL TIPO SELEZIONATO
     # ------------------------------------------------------------
     
-    mm_nodes, mm_edges = load_mm_result(exp_id, mode=mode)
+    mm_nodes, mm_edges, mm_edge_chain = load_mm_result(exp_id, mode=mode)
 
     # ------------------------------------------------------------
     # POSIZIONI
@@ -171,7 +175,7 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
     # ------------------------------------------------------------
     plot_graph(
         G_logical, pos_log, dim_log,
-        title=f"Logical Graph )",
+        title=f"Logical Graph",
         node_colors=['skyblue'] * len(G_logical.nodes()),
         save_path=os.path.join(save_dir, f"exp_{exp_id}_logical.png"),
         dwave_draw=logical_dwave,
@@ -192,7 +196,7 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
         edge_widths.append(0.6 if e in reduced_edges else 0.4)
     plot_graph(
         G_physical, pos_phys, dim_phys,
-        title=f"Physical Graph + Reduced)",
+        title=f"Physical Graph + Reduced",
         node_colors=node_colors,
         edge_colors=edge_colors,
         edge_widths=edge_widths,
@@ -203,7 +207,7 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
     )
 
     # ------------------------------------------------------------
-    # EMBEDDING (MOSTRA TUTTO)
+    # EMBEDDING (MOSTRA SOLO MINORMINER)
     # ------------------------------------------------------------
     node_colors, edge_colors, edge_widths, labels = [], [], [], {}
     used_edges = set()
@@ -220,7 +224,57 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
 
         if nt in mm_nodes:
             node_colors.append("mediumseagreen")           # Minorminer
-        elif mapped_logical:
+        elif nt in reduced_nodes:
+            node_colors.append("pink")          # grafo ridotto SAT
+        else:
+            node_colors.append("lightgray")
+
+        labels[n] = str(n)  # Mostra solo l'ID del nodo fisico
+
+    for u, v in G_physical.edges():
+        e = tuple(sorted((normalize_node(u), normalize_node(v))))
+        if e in mm_edges:
+            edge_colors.append("mediumseagreen")
+            edge_widths.append(1.2)
+        elif e in mm_edge_chain:
+            edge_colors.append("brown")   #nel caso di chain
+            edge_widths.append(1.0)
+        elif e in reduced_edges:
+            edge_colors.append("pink")
+            edge_widths.append(0.8)
+        else:
+            edge_colors.append("lightgray")
+            edge_widths.append(0.4)
+
+    plot_graph(
+        G_physical, pos_phys, dim_phys,
+        title=f"Embedding Visualization only Minorminer",
+        node_colors=node_colors,
+        edge_colors=edge_colors,
+        edge_widths=edge_widths,
+        save_path=os.path.join(save_dir, f"exp_{exp_id}_embedding_minorminer.png"),
+        dwave_draw=physical_dwave,
+        dwave_type=physical_metadata.get("type") if physical_metadata else None,
+        show_labels=show_labels 
+    )
+
+    # ------------------------------------------------------------
+    # EMBEDDING (MOSTRA SOLO sat)
+    # ------------------------------------------------------------
+    node_colors, edge_colors, edge_widths, labels = [], [], [], {}
+    used_edges = set()
+    if solution_map:
+        for u_log, v_log in G_logical.edges():
+            if u_log in solution_map and v_log in solution_map:
+                up = normalize_node(solution_map[u_log])
+                vp = normalize_node(solution_map[v_log])
+                used_edges.add(tuple(sorted((up, vp))))
+
+    for n in G_physical.nodes():
+        nt = normalize_node(n)
+        mapped_logical = [l for l, p in solution_map.items() if normalize_node(p) == nt] if solution_map else []
+
+        if nt in mapped_logical:
             node_colors.append("blue")     # SAT embedding
         elif nt in reduced_nodes:
             node_colors.append("pink")          # grafo ridotto SAT
@@ -231,10 +285,7 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
 
     for u, v in G_physical.edges():
         e = tuple(sorted((normalize_node(u), normalize_node(v))))
-        if e in mm_edges:
-            edge_colors.append("mediumseagreen")
-            edge_widths.append(1.2)
-        elif e in used_edges:
+        if e in used_edges:
             edge_colors.append("cornflowerblue")
             edge_widths.append(1.2)
         elif e in reduced_edges:
@@ -246,12 +297,12 @@ def plot_embedding(G_logical, G_physical, solution_map, save_dir, exp_id,
 
     plot_graph(
         G_physical, pos_phys, dim_phys,
-        title=f"Embedding)",
+        title=f"Embedding Visualization only SAT",
         node_colors=node_colors,
         edge_colors=edge_colors,
         edge_widths=edge_widths,
         node_labels=labels,
-        save_path=os.path.join(save_dir, f"exp_{exp_id}_embedding.png"),
+        save_path=os.path.join(save_dir, f"exp_{exp_id}_embedding_sat.png"),
         dwave_draw=physical_dwave,
         dwave_type=physical_metadata.get("type") if physical_metadata else None,
         show_labels=show_labels
@@ -262,7 +313,8 @@ def plot_noembedding(G_logical, G_physical, save_dir, exp_id,
                      reduced_file=None,
                      logical_metadata=None, physical_metadata=None,
                      logical_dwave=False, physical_dwave=False,
-                     show_labels=False):
+                     show_labels=False,
+                     mode=None):
 
     ensure_dir(save_dir)
 
@@ -283,6 +335,8 @@ def plot_noembedding(G_logical, G_physical, save_dir, exp_id,
             reduced_edges.add(
                 tuple(sorted((normalize_node(u), normalize_node(v))))
             )
+
+    mm_nodes, mm_edges, mm_edge_chain = load_mm_result(exp_id, mode=mode)
 
     # ============================================================
     # LOGICAL GRAPH (visualizzato neutro)
@@ -306,7 +360,7 @@ def plot_noembedding(G_logical, G_physical, save_dir, exp_id,
     )
 
     # ============================================================
-    # PHYSICAL GRAPH — evidenzia SOLO il sottografo ridotto
+    # PHYSICAL GRAPH — evidenzia il sottografo ridotto + minorminer
     # ============================================================
     pos_phys, dim_phys = compute_positions(
         G_physical,
@@ -318,7 +372,10 @@ def plot_noembedding(G_logical, G_physical, save_dir, exp_id,
     node_colors = []
     for n in G_physical.nodes():
         nt = normalize_node(n)
-        if nt in reduced_nodes:
+
+        if nt in mm_nodes:
+            node_colors.append("mediumseagreen")
+        elif nt in reduced_nodes:
             node_colors.append("pink")
         else:
             node_colors.append("lightgray")
@@ -328,7 +385,13 @@ def plot_noembedding(G_logical, G_physical, save_dir, exp_id,
     edge_widths = []
     for u, v in G_physical.edges():
         e = tuple(sorted((normalize_node(u), normalize_node(v))))
-        if e in reduced_edges:
+        if e in mm_edges:
+            edge_colors.append("mediumseagreen")
+            edge_widths.append(1.2)
+        elif e in mm_edge_chain:
+            edge_colors.append("brown")
+            edge_widths.append(1.0)
+        elif e in reduced_edges:
             edge_colors.append("pink")
             edge_widths.append(0.9)
         else:

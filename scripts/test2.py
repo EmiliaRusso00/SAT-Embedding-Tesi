@@ -56,18 +56,12 @@ def parse_unsat_analysis(path):
     return allowed_dict, forced_dict
 
 # ---------------------------------------------------------
-# VERIFICA ARCHI LOGICI E VINCOLI ALLOWED
+# VERIFICA ARCHI LOGICI
 # ---------------------------------------------------------
-def respects_logical_edges_and_allowed(G_log, embedding, G_phys, allowed_dict):
+def respects_logical_edges(G_log, embedding, G_phys):
     for u, v in G_log.edges():
         if not any(G_phys.has_edge(a, b) for a in embedding[u] for b in embedding[v]):
             print(f"[FAIL] Arco logico ({u},{v}) NON rispettato")
-            return False
-    # Controlla allowed
-    for n, qubits in embedding.items():
-        allowed = set(allowed_dict.get(n, []))
-        if not set(qubits).issubset(allowed):
-            print(f"[FAIL] Nodo logico {n} ha qubit non consentiti: {qubits}, allowed={sorted(allowed)}")
             return False
     return True
 
@@ -106,13 +100,13 @@ def traced_find_embedding(step_id, G_log, G_phys, fixed_chains, timeout):
     return emb
 
 # ---------------------------------------------------------
-# EMBEDDING ITERATIVO CON CONTROLLO ALLOWED
+# EMBEDDING ITERATIVO SENZA CHECK ALLOWED
 # ---------------------------------------------------------
-def progressive_embedding(G_logical, G_physical, allowed_dict, forced_dict, timeout=30, max_retries=50):
+def progressive_embedding(G_logical, G_physical, allowed_dict, forced_dict, timeout=30, max_retries=1):
     step_id = 0
 
     # -------------------------------
-    # FASE 0: fissaggi hard
+    # FASE 0: fissaggi hard (forced o allowed unico)
     # -------------------------------
     fixed_hard = {}
     for n in allowed_dict:
@@ -126,11 +120,10 @@ def progressive_embedding(G_logical, G_physical, allowed_dict, forced_dict, time
     free_nodes = [n for n in allowed_dict if n not in fixed_hard]
 
     # -------------------------------
-    # FASE ITERATIVA: rilancio Minorminer
+    # FASE ITERATIVA: rilancio Minorminer finché archi logici rispettati
     # -------------------------------
     for attempt in range(1, max_retries + 1):
         print(f"\n[ATTEMPT {attempt}/{max_retries}]")
-
         fixed = dict(fixed_hard)
 
         emb = traced_find_embedding(step_id, G_logical, G_physical, fixed, timeout)
@@ -140,11 +133,11 @@ def progressive_embedding(G_logical, G_physical, allowed_dict, forced_dict, time
             print("[Minorminer FAIL] Riprovo...")
             continue
 
-        if respects_logical_edges_and_allowed(G_logical, emb, G_physical, allowed_dict):
+        if respects_logical_edges(G_logical, emb, G_physical):
             print("[SUCCESS] Embedding valido trovato!")
             return emb
         else:
-            print("[FAIL] Embedding trovato non rispetta allowed, rilancio Minorminer...")
+            print("[FAIL] Embedding trovato non rispetta archi logici, rilancio Minorminer...")
 
     print("[FAIL] Impossibile trovare embedding valido dopo massimo tentativi")
     return None
@@ -161,7 +154,7 @@ if __name__ == "__main__":
     G_phys = load_graph_json(sys.argv[2])
     allowed, forced = parse_unsat_analysis(sys.argv[3])
 
-    num_attempts = 50
+    num_attempts = 100
     best_emb = None
     best_max_chain = float("inf")
     best_num_nodes_max_chain = float("inf")
@@ -175,7 +168,6 @@ if __name__ == "__main__":
             print("[ATTEMPT FALLITO]")
             continue
 
-        # calcola la lunghezza massima delle catene
         chain_lengths = [len(chain) for chain in emb.values()]
         max_chain_len = max(chain_lengths)
         num_nodes_max_chain = chain_lengths.count(max_chain_len)

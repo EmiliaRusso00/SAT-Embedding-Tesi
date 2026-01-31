@@ -1,141 +1,237 @@
 import os
 import json
+import re
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-# --- CONFIG ---
+# =========================
+# CONFIG
+# =========================
 OUTPUT_DIR = "outputs"
 SUMMARY_FILE = os.path.join(OUTPUT_DIR, "minorminer_summary.json")
+CSV_OUT = os.path.join(OUTPUT_DIR, "embedding_times_summary.csv")
 
-# --- CARICAMENTO RIASSUNTIVO MINORMINER ---
+# =========================
+# PRETTY NAMES
+# =========================
+def pretty_logical_graph(name):
+    base = os.path.splitext(os.path.basename(name))[0]
+
+    m = re.match(r"clique(\d+)", base)
+    if m:
+        return f"C{m.group(1)}"
+
+    m = re.match(r"bipartito(\d+)x(\d+)", base)
+    if m:
+        return f"K{m.group(1)},{m.group(2)}"
+
+    return base
+
+
+def pretty_physical_graph(name):
+    base = os.path.splitext(os.path.basename(name))[0]
+
+    m = re.match(r"zephyr(\d+)$", base)
+    if m:
+        return f"Zephyr (m={m.group(1)})"
+
+    m = re.match(r"zephyr(\d+)_(\d+)_(\d+)", base)
+    if m:
+        return f"Zephyr (m={m.group(1)}, |V|={m.group(2)}, |E|={m.group(3)})"
+
+    return base
+
+
+# =========================
+# LOAD SUMMARY
+# =========================
 with open(SUMMARY_FILE, "r") as f:
     summary_data = json.load(f)
 
-# --- ORGANIZZA I DATI PER ESPERIMENTO E MODALITÀ ---
-results_dict = {}
-for entry in summary_data:
-    exp_id = entry["experiment_id"]
-    mode = entry["mode"]
-    
-    if exp_id not in results_dict:
-        results_dict[exp_id] = {}
-    
-    results_dict[exp_id][mode] = entry
-
-# --- PREPARA LA LISTA DEI RISULTATI ---
 results = []
 
-for exp_id, modes in results_dict.items():
-    # Minorminer
-    full_mm = modes.get("full", {})
-    reduced_mm = modes.get("reduced", {})
+# =========================
+# LOOP ESPERIMENTI
+# =========================
+for exp_summary in summary_data:
+    exp_id = exp_summary["experiment_id"]
 
-    tempo_mm_full = full_mm.get("time_seconds")
-    success_mm_full = full_mm.get("success")
-    tempo_mm_reduce = reduced_mm.get("time_seconds")
-    success_mm_reduce = reduced_mm.get("success")
-    num_logical = full_mm.get("num_logical_nodes")
-    num_physical_full = full_mm.get("num_physical_nodes")
-    num_physical_reduce = reduced_mm.get("num_physical_nodes")
-    max_chain_full = full_mm.get("max_chain_length")
-    max_chain_reduce = reduced_mm.get("max_chain_length")
+    full_file = os.path.join(
+        OUTPUT_DIR, str(exp_id), "full", f"experiment_{exp_id:03d}.json"
+    )
+    reduced_file = os.path.join(
+        OUTPUT_DIR, str(exp_id), "reduced", f"experiment_{exp_id:03d}.json"
+    )
 
-    # Percorsi ai file SAT (Full e Reduced)
-    full_file = os.path.join(OUTPUT_DIR, str(exp_id), "full", f"experiment_{exp_id:03d}.json")
-    reduced_file = os.path.join(OUTPUT_DIR, str(exp_id), "reduced", f"experiment_{exp_id:03d}.json")
+    logical_graph = None
+    physical_graph = None
 
-    # Inizializza valori SAT
-    tempo_full = None
-    success_full = None
-    tempo_reduce = None
-    success_reduce = None
-    logical_graph_name = f"logical_{exp_id}"
-    physical_graph_name = f"physical_{exp_id}"
+    num_logical_nodes = None
+    num_logical_edges = None
+    num_physical_nodes = None
+    num_physical_edges = None
 
-    # Carica Full SAT
+    tempo_mm_full = None
+    tempo_mm_reduce = None
+    tempo_full_sat = None
+    tempo_reduce_sat = None
+
+    # =========================
+    # FULL SAT
+    # =========================
     if os.path.isfile(full_file):
         with open(full_file, "r") as f:
-            full_data = json.load(f)
-            solver_full = full_data.get("solver", {})
-            tempo_full = solver_full.get("time_sat_solve")
-            success_full = solver_full.get("status")
-            config = full_data.get("config", {})
-            logical_graph_name = config.get("logical_graph", logical_graph_name)
-            physical_graph_name = config.get("physical_graph", physical_graph_name)
+            data = json.load(f)
 
-    # Carica Reduced SAT
+        config = data.get("config", {})
+        solver = data.get("solver", {})
+        logical_info = data.get("logical_graph", {})
+        physical_info = data.get("physical_graph", {})
+
+        logical_graph = pretty_logical_graph(config.get("logical_graph", ""))
+        physical_graph = pretty_physical_graph(config.get("physical_graph", ""))
+
+        num_logical_nodes = logical_info.get("num_vertices")
+        num_logical_edges = logical_info.get("num_edges")
+        num_physical_nodes = physical_info.get("num_vertices")
+        num_physical_edges = physical_info.get("num_edges")
+
+        if solver.get("status") == "SAT":
+            tempo_full_sat = solver.get("time_sat_solve")
+
+    # =========================
+    # REDUCED SAT
+    # =========================
     if os.path.isfile(reduced_file):
         with open(reduced_file, "r") as f:
-            red_data = json.load(f)
-            solver_red = red_data.get("solver", {})
-            tempo_reduce = solver_red.get("time_sat_solve")
-            success_reduce = solver_red.get("status")
+            data = json.load(f)
+
+        solver = data.get("solver", {})
+        if solver.get("status") == "SAT":
+            tempo_reduce_sat = solver.get("time_sat_solve")
+
+    # =========================
+    # MINORMINER INFO
+    # =========================
+    full_mm = exp_summary.get("full", {})
+    reduced_mm = exp_summary.get("reduced", {})
+
+    tempo_mm_full = full_mm.get("first_success_time")
+    tempo_mm_reduce = reduced_mm.get("first_success_time")
 
     results.append({
         "EXPERIMENT_ID": exp_id,
-        "LOGICAL_GRAPH": logical_graph_name,
-        "PHYSICAL_GRAPH": physical_graph_name,
-        "NUM_LOGICAL_NODES": num_logical,
-        "NUM_PHYSICAL_NODES_FULL": num_physical_full,
-        "NUM_PHYSICAL_NODES_REDUCE": num_physical_reduce,
-        "SUCCESS_MM_FULL": success_mm_full,
+        "LOGICAL_GRAPH": logical_graph,
+        "PHYSICAL_GRAPH": physical_graph,
+
+        "NUM_LOGICAL_NODES": num_logical_nodes,
+        "NUM_LOGICAL_EDGES": num_logical_edges,
+        "NUM_PHYSICAL_NODES": num_physical_nodes,
+        "NUM_PHYSICAL_EDGES": num_physical_edges,
+
         "TEMPO_MM_FULL": tempo_mm_full,
-        "MAX_CHAIN_MM_FULL": max_chain_full,
-        "SUCCESS_MM_REDUCE": success_mm_reduce,
         "TEMPO_MM_REDUCE": tempo_mm_reduce,
-        "MAX_CHAIN_MM_REDUCE": max_chain_reduce,
-        "SUCCESS_FULL_SAT": success_full,
-        "TEMPO_FULL_SAT": tempo_full,
-        "SUCCESS_REDUCE_SAT": success_reduce,
-        "TEMPO_REDUCE_SAT": tempo_reduce
+        "TEMPO_FULL_SAT": tempo_full_sat,
+        "TEMPO_REDUCE_SAT": tempo_reduce_sat,
+
+        # 🔥 NUOVE COLONNE
+        "MM_FULL_ATTEMPTS_TO_1TO1": full_mm.get("attempts_to_first_1to1"),
+        "MM_REDUCED_ATTEMPTS_TO_1TO1": reduced_mm.get("attempts_to_first_1to1"),
+        "MM_MAX_ATTEMPTS": exp_summary.get("max_attempts_allowed"),
     })
 
-# --- CREA DATAFRAME ---
+# =========================
+# DATAFRAME + CSV
+# =========================
 df = pd.DataFrame(results)
-
-# --- SALVA CSV ---
-csv_path = os.path.join(OUTPUT_DIR, "embedding_times_summary.csv")
-df.to_csv(csv_path, index=False)
-
-print(f"Tabella creata con successo: {csv_path}")
-print(df)
-
-# --- PLOTTING TEMPI ---
-df_plot = df.copy()
-x = np.arange(len(df_plot)) * 2
-width = 0.2
-
-fig, ax = plt.subplots(figsize=(16, 8))
-
-bars_mm_full = ax.bar(x - width, df_plot["TEMPO_MM_FULL"], width, label="Minorminer Full", color="mediumseagreen")
-bars_mm_reduce = ax.bar(x, df_plot["TEMPO_MM_REDUCE"], width, label="Minorminer Reduced", color="green")
-bars_full_sat = ax.bar(x + width, df_plot["TEMPO_FULL_SAT"], width, label="Full SAT", color="lightblue")
-bars_reduce_sat = ax.bar(x + 2*width, df_plot["TEMPO_REDUCE_SAT"], width, label="Reduced SAT", color="mediumblue")
-
-ax.set_yscale('log')
-ax.set_ylabel("Tempo (s) [scala log]")
-ax.set_xlabel("ID esperimento")
-ax.set_title("Confronto tempi Minorminer e SAT (Full vs Reduced)")
-ax.set_xticks(x + width/2)
-ax.set_xticklabels(df_plot["EXPERIMENT_ID"])
-ax.legend()
-
-# Etichette sopra le barre
-def autolabel(bars):
-    for bar in bars:
-        height = bar.get_height()
-        if not np.isnan(height):
-            ax.annotate(f'{height:.4f}',
-                        xy=(bar.get_x() + bar.get_width()/2, height),
-                        xytext=(0, 3),
-                        textcoords="offset points",
-                        ha='center', va='bottom', fontsize=8)
-
-for bars in [bars_mm_full, bars_mm_reduce, bars_full_sat, bars_reduce_sat]:
-    autolabel(bars)
-
-plt.tight_layout()
-plt.show()
+df.to_csv(CSV_OUT, index=False)
+print(f"CSV creato: {CSV_OUT}")
+PLOT_DIR = os.path.dirname(CSV_OUT)
 
 
+# =========================
+# PLOT PER GRAFO FISICO
+# =========================
+# =========================
+# PLOT PER GRAFO FISICO
+# =========================
+for pg in df["PHYSICAL_GRAPH"].dropna().unique():
+    df_pg = df[df["PHYSICAL_GRAPH"] == pg].copy()
+
+    for col in [
+        "TEMPO_MM_FULL",
+        "TEMPO_MM_REDUCE",
+        "TEMPO_FULL_SAT",
+        "TEMPO_REDUCE_SAT",
+    ]:
+        df_pg[col] = pd.to_numeric(df_pg[col], errors="coerce")
+
+    # 👇 etichette con tentativi full e reduced
+    labels = []
+    for _, r in df_pg.iterrows():
+        parts = [str(r['LOGICAL_GRAPH'])]
+
+        att_full = r["MM_FULL_ATTEMPTS_TO_1TO1"]
+        att_red = r["MM_REDUCED_ATTEMPTS_TO_1TO1"]
+        max_att = r["MM_MAX_ATTEMPTS"]
+
+        if pd.notna(att_full):
+            parts.append(f"full:({int(att_full)}/{int(max_att)})")
+        if pd.notna(att_red):
+            parts.append(f"reduced:({int(att_red)}/{int(max_att)})")
+        if pd.isna(att_full) and pd.isna(att_red):
+            parts.append(f"(–/{int(max_att)})")
+
+        labels.append("\n".join(parts))
+
+    x = np.arange(len(df_pg))
+    width = 0.22
+
+    fig, ax = plt.subplots(figsize=(18, 9))
+
+    bars_mm_full = ax.bar(x - 1.5 * width, df_pg["TEMPO_MM_FULL"], width, label="Minorminer Full")
+    bars_mm_red = ax.bar(x - 0.5 * width, df_pg["TEMPO_MM_REDUCE"], width, label="Minorminer Reduced")
+    bars_sat_full = ax.bar(x + 0.5 * width, df_pg["TEMPO_FULL_SAT"], width, label="SAT Full")
+    bars_sat_red = ax.bar(x + 1.5 * width, df_pg["TEMPO_REDUCE_SAT"], width, label="SAT Reduced")
+
+    ax.set_yscale("log")
+    ax.set_ylabel("Tempo (s) [scala log]")
+    ax.set_xlabel("Grafo logico")
+    ax.set_title(f"Confronto Minorminer vs SAT\nGrafo fisico: {pg}")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=0)
+    ax.legend()
+
+    def autolabel(bars):
+        for bar in bars:
+            h = bar.get_height()
+            if h and not np.isnan(h):
+                ax.annotate(
+                    f"{h:.3f}",
+                    (bar.get_x() + bar.get_width() / 2, h),
+                    xytext=(0, 6),
+                    textcoords="offset points",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9
+                )
+
+    for bars in [bars_mm_full, bars_mm_red, bars_sat_full, bars_sat_red]:
+        autolabel(bars)
+
+    ax.margins(y=0.2)
+    plt.tight_layout()
+
+    # salva nel CSV_DIR
+    safe_pg = re.sub(r"[^\w\-]+", "_", pg)
+    plot_path = os.path.join(
+        PLOT_DIR,
+        f"confronto_tempi_{safe_pg}.png"
+    )
+
+    plt.savefig(plot_path, dpi=300)
+    plt.close()
+
+    print(f"Grafico salvato: {plot_path}")
