@@ -1,180 +1,180 @@
 experiments:
 # Esperimenti di cui sicuramente si ha un embedding, con zephyr1 come grafo fisico
 
-#   - id: 1
-#     logical_graph: graphs/clique3.txt
-#     logical_graph_json: graphs/clique3.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/1/reduced/reduced_physical_1.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#    
-#   - id: 2
-#     logical_graph: graphs/clique4.txt
-#     logical_graph_json: graphs/clique4.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/2/reduced/reduced_physical_2.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#  
-#   - id: 3
-#     logical_graph: graphs/bipartito7x7.txt
-#     logical_graph_json: graphs/bipartito7x7.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/3/reduced/reduced_physical_3.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-# 
-#   - id: 4
-#     logical_graph: graphs/bipartito8x8.txt
-#     logical_graph_json: graphs/bipartito8x8.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/4/reduced/reduced_physical_4.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#     
-#   - id: 5
-#     logical_graph: graphs/zephyr1_46_254.txt
-#     logical_graph_json: graphs/zephyr1_46_254.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/5/reduced/reduced_physical_5.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#   - id: 6
-#     logical_graph: graphs/zephyr1_47_263.txt
-#     logical_graph_json: graphs/zephyr1_47_263.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/6/reduced/reduced_physical_6.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#   - id: 7
-#     logical_graph: graphs/zephyr1_47_271.txt
-#     logical_graph_json: graphs/zephyr1_47_271.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/7/reduced/reduced_physical_7.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#   - id: 8
-#     logical_graph: graphs/zephyr1_48_276.txt
-#     logical_graph_json: graphs/zephyr1_48_276.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/8/reduced/reduced_physical_8.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#  
-#   - id: 9
-#     logical_graph: graphs/zephyr1_48_278.txt
-#     logical_graph_json: graphs/zephyr1_48_278.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/9/reduced/reduced_physical_9.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#  
-#   - id: 10
-#     logical_graph: graphs/zephyr1_48_279.txt
-#     logical_graph_json: graphs/zephyr1_48_279.json
-#     physical_graph: graphs/zephyr1.txt
-#     physical_graph_json: graphs/zephyr1.json
-#     reduce_physical_graph: outputs/10/reduced/reduced_physical_10.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#  # Esperimenti con zephyr2 come grafo fisico
-#
-#   - id: 11
-#     logical_graph: graphs/clique4.txt
-#     logical_graph_json: graphs/clique4.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/11/reduced/reduced_physical_11.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#   - id: 12
-#     logical_graph: graphs/bipartito8x8.txt
-#     logical_graph_json: graphs/bipartito8x8.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/12/reduced/reduced_physical_12.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#    - id: 13
-#      logical_graph: graphs/zephyr1.txt
-#      logical_graph_json: graphs/zephyr1.json
-#      physical_graph: graphs/zephyr2.txt
-#      physical_graph_json: graphs/zephyr2.json
-#      reduce_physical_graph: outputs/13/reduced/reduced_physical_13.json
-#      timeout_seconds: 3360
-#      generate_full_and_reduced: true
-#
-#   - id: 14
-#     logical_graph: graphs/zephyr1_46_254.txt
-#     logical_graph_json: graphs/zephyr1_46_254.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/14/reduced/reduced_physical_14.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#   - id: 15
-#     logical_graph: graphs/zephyr1_47_263.txt
-#     logical_graph_json: graphs/zephyr1_47_263.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/15/reduced/reduced_physical_15.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#   - id: 16
-#     logical_graph: graphs/zephyr1_47_271.txt
-#     logical_graph_json: graphs/zephyr1_47_271.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/16/reduced/reduced_physical_16.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
-#   - id: 17
-#     logical_graph: graphs/zephyr1_48_276.txt
-#     logical_graph_json: graphs/zephyr1_48_276.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/17/reduced/reduced_physical_17.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#  
-#   - id: 18
-#     logical_graph: graphs/zephyr1_48_278.txt
-#     logical_graph_json: graphs/zephyr1_48_278.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/18/reduced/reduced_physical_18.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#  
-#   - id: 19
-#     logical_graph: graphs/zephyr1_48_279.txt
-#     logical_graph_json: graphs/zephyr1_48_279.json
-#     physical_graph: graphs/zephyr2.txt
-#     physical_graph_json: graphs/zephyr2.json
-#     reduce_physical_graph: outputs/19/reduced/reduced_physical_19.json
-#     timeout_seconds: 3360
-#     generate_full_and_reduced: true
-#
+     - id: 1
+       logical_graph: graphs/clique3.txt
+       logical_graph_json: graphs/clique3.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/1/reduced/reduced_physical_1.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+      
+     - id: 2
+       logical_graph: graphs/clique4.txt
+       logical_graph_json: graphs/clique4.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/2/reduced/reduced_physical_2.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+    
+     - id: 3
+       logical_graph: graphs/bipartito7x7.txt
+       logical_graph_json: graphs/bipartito7x7.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/3/reduced/reduced_physical_3.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+   
+     - id: 4
+       logical_graph: graphs/bipartito8x8.txt
+       logical_graph_json: graphs/bipartito8x8.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/4/reduced/reduced_physical_4.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+       
+     - id: 5
+       logical_graph: graphs/zephyr1_46_254.txt
+       logical_graph_json: graphs/zephyr1_46_254.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/5/reduced/reduced_physical_5.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+     - id: 6
+       logical_graph: graphs/zephyr1_47_263.txt
+       logical_graph_json: graphs/zephyr1_47_263.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/6/reduced/reduced_physical_6.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+     - id: 7
+       logical_graph: graphs/zephyr1_47_271.txt
+       logical_graph_json: graphs/zephyr1_47_271.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/7/reduced/reduced_physical_7.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+     - id: 8
+       logical_graph: graphs/zephyr1_48_277.txt
+       logical_graph_json: graphs/zephyr1_48_277.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/8/reduced/reduced_physical_8.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+    
+     - id: 9
+       logical_graph: graphs/zephyr1_48_278.txt
+       logical_graph_json: graphs/zephyr1_48_278.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/9/reduced/reduced_physical_9.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+    
+     - id: 10
+       logical_graph: graphs/zephyr1_48_279.txt
+       logical_graph_json: graphs/zephyr1_48_279.json
+       physical_graph: graphs/zephyr1.txt
+       physical_graph_json: graphs/zephyr1.json
+       reduce_physical_graph: outputs/10/reduced/reduced_physical_10.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+    # Esperimenti con zephyr2 come grafo fisico
+  
+     - id: 11
+       logical_graph: graphs/clique4.txt
+       logical_graph_json: graphs/clique4.json
+       physical_graph: graphs/zephyr2.txt
+       physical_graph_json: graphs/zephyr2.json
+       reduce_physical_graph: outputs/11/reduced/reduced_physical_11.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+     - id: 12
+       logical_graph: graphs/bipartito8x8.txt
+       logical_graph_json: graphs/bipartito8x8.json
+       physical_graph: graphs/zephyr2.txt
+       physical_graph_json: graphs/zephyr2.json
+       reduce_physical_graph: outputs/12/reduced/reduced_physical_12.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+     - id: 13
+       logical_graph: graphs/zephyr1.txt
+       logical_graph_json: graphs/zephyr1.json
+       physical_graph: graphs/zephyr2.txt
+       physical_graph_json: graphs/zephyr2.json
+       reduce_physical_graph: outputs/13/reduced/reduced_physical_13.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+     - id: 14
+       logical_graph: graphs/zephyr1_46_254.txt
+       logical_graph_json: graphs/zephyr1_46_254.json
+       physical_graph: graphs/zephyr2.txt
+       physical_graph_json: graphs/zephyr2.json
+       reduce_physical_graph: outputs/14/reduced/reduced_physical_14.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+     - id: 15
+       logical_graph: graphs/zephyr1_47_263.txt
+       logical_graph_json: graphs/zephyr1_47_263.json
+       physical_graph: graphs/zephyr2.txt
+       physical_graph_json: graphs/zephyr2.json
+       reduce_physical_graph: outputs/15/reduced/reduced_physical_15.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+  
+     - id: 16
+       logical_graph: graphs/zephyr1_47_271.txt
+       logical_graph_json: graphs/zephyr1_47_271.json
+       physical_graph: graphs/zephyr2.txt
+       physical_graph_json: graphs/zephyr2.json
+       reduce_physical_graph: outputs/16/reduced/reduced_physical_16.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+ 
+     - id: 17
+       logical_graph: graphs/zephyr1_48_277.txt
+       logical_graph_json: graphs/zephyr1_48_277.json
+       physical_graph: graphs/zephyr2.txt
+       physical_graph_json: graphs/zephyr2.json
+       reduce_physical_graph: outputs/17/reduced/reduced_physical_17.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+    
+     - id: 18
+       logical_graph: graphs/zephyr1_48_277.txt
+       logical_graph_json: graphs/zephyr1_48_277.json
+       physical_graph: graphs/zephyr2.txt
+       physical_graph_json: graphs/zephyr2.json
+       reduce_physical_graph: outputs/18/reduced/reduced_physical_18.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+    
+     - id: 19
+       logical_graph: graphs/zephyr1_48_279.txt
+       logical_graph_json: graphs/zephyr1_48_279.json
+       physical_graph: graphs/zephyr2.txt
+       physical_graph_json: graphs/zephyr2.json
+       reduce_physical_graph: outputs/19/reduced/reduced_physical_19.json
+       timeout_seconds: 3360
+       generate_full_and_reduced: true
+ 
 #    - id: 20
 #      logical_graph: graphs/zephyr_2tile.txt
 #      logical_graph_json: graphs/zephyr_2tile.json
@@ -184,11 +184,47 @@ experiments:
 #      timeout_seconds: 3360
 #      generate_full_and_reduced: true
 
-    - id: 30
-      logical_graph: graphs/zephyr1.txt
-      logical_graph_json: graphs/zephyr1.json
-      physical_graph: graphs/zephyr3.txt
-      physical_graph_json: graphs/zephyr3.json
-      reduce_physical_graph: outputs/30/reduced/reduced_physical_30.json
-      timeout_seconds: 3360
-      generate_full_and_reduced: true
+#    - id: 21
+#      logical_graph: graphs/zephyr_2tile.txt
+#      logical_graph_json: graphs/zephyr_2tile.json
+#      physical_graph: graphs/zephyr3.txt
+#      physical_graph_json: graphs/zephyr3.json
+#      reduce_physical_graph: outputs/21/reduced/reduced_physical_21.json
+#      timeout_seconds: 3360
+#      generate_full_and_reduced: true
+#
+#    - id: 22
+#      logical_graph: graphs/zephyr_3tile.txt
+#      logical_graph_json: graphs/zephyr_3tile.json
+#      physical_graph: graphs/zephyr3.txt
+#      physical_graph_json: graphs/zephyr3.json
+#      reduce_physical_graph: outputs/22/reduced/reduced_physical_22.json
+#      timeout_seconds: 3360
+#      generate_full_and_reduced: true
+#
+#    - id: 23 
+#      logical_graph: graphs/zephyr1.txt
+#      logical_graph_json: graphs/zephyr1.json
+#      physical_graph: graphs/zephyr3.txt
+#      physical_graph_json: graphs/zephyr3.json
+#      reduce_physical_graph: outputs/23/reduced/reduced_physical_23.json
+#      timeout_seconds: 3360
+#      generate_full_and_reduced: true
+#  
+#    - id: 24
+#      logical_graph: graphs/zephyr2.txt
+#      logical_graph_json: graphs/zephyr2.json
+#      physical_graph: graphs/zephyr3.txt
+#      physical_graph_json: graphs/zephyr3.json
+#      reduce_physical_graph: outputs/24/reduced/reduced_physical_24.json
+#      timeout_seconds: 3360
+#      generate_full_and_reduced: true
+#
+#    - id: 25
+#      logical_graph: graphs/zephyr3.txt
+#      logical_graph_json: graphs/zephyr3.json
+#      physical_graph: graphs/zephyr3.txt  
+#      physical_graph_json: graphs/zephyr3.json
+#      reduce_physical_graph: outputs/25/reduced/reduced_physical_25.json
+#      timeout_seconds: 3360
+#      generate_full_and_reduced: true

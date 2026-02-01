@@ -5,3 +5,5 @@ tqdm
 numpy
 matplotlib
 dwave-networkx
+minorminer
+pandas

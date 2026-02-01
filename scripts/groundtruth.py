@@ -42,7 +42,6 @@ def pretty_physical_graph(name):
 
     return base
 
-
 # =========================
 # LOAD SUMMARY
 # =========================
@@ -72,13 +71,11 @@ for exp_summary in summary_data:
     num_physical_nodes = None
     num_physical_edges = None
 
-    tempo_mm_full = None
-    tempo_mm_reduce = None
     tempo_full_sat = None
     tempo_reduce_sat = None
 
     # =========================
-    # FULL SAT
+    # LEGGO SAT (FULL)
     # =========================
     if os.path.isfile(full_file):
         with open(full_file, "r") as f:
@@ -101,7 +98,7 @@ for exp_summary in summary_data:
             tempo_full_sat = solver.get("time_sat_solve")
 
     # =========================
-    # REDUCED SAT
+    # LEGGO SAT (REDUCED)
     # =========================
     if os.path.isfile(reduced_file):
         with open(reduced_file, "r") as f:
@@ -112,13 +109,13 @@ for exp_summary in summary_data:
             tempo_reduce_sat = solver.get("time_sat_solve")
 
     # =========================
-    # MINORMINER INFO
+    # LEGGO MINORMINER DAL SUMMARY (avg_attempt_time)
     # =========================
     full_mm = exp_summary.get("full", {})
     reduced_mm = exp_summary.get("reduced", {})
 
-    tempo_mm_full = full_mm.get("first_success_time")
-    tempo_mm_reduce = reduced_mm.get("first_success_time")
+    tempo_mm_full = full_mm.get("avg_attempt_time")
+    tempo_mm_reduce = reduced_mm.get("avg_attempt_time")
 
     results.append({
         "EXPERIMENT_ID": exp_id,
@@ -135,7 +132,7 @@ for exp_summary in summary_data:
         "TEMPO_FULL_SAT": tempo_full_sat,
         "TEMPO_REDUCE_SAT": tempo_reduce_sat,
 
-        # 🔥 NUOVE COLONNE
+        # TENTATIVI 1:1
         "MM_FULL_ATTEMPTS_TO_1TO1": full_mm.get("attempts_to_first_1to1"),
         "MM_REDUCED_ATTEMPTS_TO_1TO1": reduced_mm.get("attempts_to_first_1to1"),
         "MM_MAX_ATTEMPTS": exp_summary.get("max_attempts_allowed"),
@@ -149,29 +146,19 @@ df.to_csv(CSV_OUT, index=False)
 print(f"CSV creato: {CSV_OUT}")
 PLOT_DIR = os.path.dirname(CSV_OUT)
 
-
 # =========================
-# PLOT PER GRAFO FISICO
-# =========================
-# =========================
-# PLOT PER GRAFO FISICO
+# PLOT MINORMINER VS SAT (con barre non sovrapposte)
 # =========================
 for pg in df["PHYSICAL_GRAPH"].dropna().unique():
     df_pg = df[df["PHYSICAL_GRAPH"] == pg].copy()
 
-    for col in [
-        "TEMPO_MM_FULL",
-        "TEMPO_MM_REDUCE",
-        "TEMPO_FULL_SAT",
-        "TEMPO_REDUCE_SAT",
-    ]:
+    for col in ["TEMPO_MM_FULL", "TEMPO_MM_REDUCE", "TEMPO_FULL_SAT", "TEMPO_REDUCE_SAT"]:
         df_pg[col] = pd.to_numeric(df_pg[col], errors="coerce")
 
-    # 👇 etichette con tentativi full e reduced
+    # ETICHETTE con tentativi 1:1
     labels = []
     for _, r in df_pg.iterrows():
         parts = [str(r['LOGICAL_GRAPH'])]
-
         att_full = r["MM_FULL_ATTEMPTS_TO_1TO1"]
         att_red = r["MM_REDUCED_ATTEMPTS_TO_1TO1"]
         max_att = r["MM_MAX_ATTEMPTS"]
@@ -186,14 +173,16 @@ for pg in df["PHYSICAL_GRAPH"].dropna().unique():
         labels.append("\n".join(parts))
 
     x = np.arange(len(df_pg))
-    width = 0.22
+    n_bars = 4
+    width = 0.8 / n_bars  # ogni gruppo di barre occupa 80% dello spazio
+    offsets = np.linspace(-0.5, 0.5, n_bars) * 0.8  # centrato su x
 
     fig, ax = plt.subplots(figsize=(18, 9))
 
-    bars_mm_full = ax.bar(x - 1.5 * width, df_pg["TEMPO_MM_FULL"], width, label="Minorminer Full")
-    bars_mm_red = ax.bar(x - 0.5 * width, df_pg["TEMPO_MM_REDUCE"], width, label="Minorminer Reduced")
-    bars_sat_full = ax.bar(x + 0.5 * width, df_pg["TEMPO_FULL_SAT"], width, label="SAT Full")
-    bars_sat_red = ax.bar(x + 1.5 * width, df_pg["TEMPO_REDUCE_SAT"], width, label="SAT Reduced")
+    bars_mm_full = ax.bar(x + offsets[0], df_pg["TEMPO_MM_FULL"], width, label="Minorminer Full")
+    bars_mm_red  = ax.bar(x + offsets[1], df_pg["TEMPO_MM_REDUCE"], width, label="Minorminer Reduced")
+    bars_sat_full = ax.bar(x + offsets[2], df_pg["TEMPO_FULL_SAT"], width, label="SAT Full")
+    bars_sat_red  = ax.bar(x + offsets[3], df_pg["TEMPO_REDUCE_SAT"], width, label="SAT Reduced")
 
     ax.set_yscale("log")
     ax.set_ylabel("Tempo (s) [scala log]")
@@ -204,6 +193,7 @@ for pg in df["PHYSICAL_GRAPH"].dropna().unique():
     ax.set_xticklabels(labels, rotation=0)
     ax.legend()
 
+    # Funzione per scrivere valori sopra le barre
     def autolabel(bars):
         for bar in bars:
             h = bar.get_height()
@@ -224,13 +214,8 @@ for pg in df["PHYSICAL_GRAPH"].dropna().unique():
     ax.margins(y=0.2)
     plt.tight_layout()
 
-    # salva nel CSV_DIR
     safe_pg = re.sub(r"[^\w\-]+", "_", pg)
-    plot_path = os.path.join(
-        PLOT_DIR,
-        f"confronto_tempi_{safe_pg}.png"
-    )
-
+    plot_path = os.path.join(PLOT_DIR, f"confronto_tempi_{safe_pg}.png")
     plt.savefig(plot_path, dpi=300)
     plt.close()
 

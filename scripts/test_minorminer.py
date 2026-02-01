@@ -2,6 +2,7 @@ import json
 import time
 import yaml
 import os
+import copy
 import networkx as nx
 import minorminer
 
@@ -50,11 +51,29 @@ def compute_used_physical_edges(G_logical, G_physical, embedding):
         for i in range(len(chain)):
             for j in range(i + 1, len(chain)):
                 if G_physical.has_edge(chain[i], chain[j]):
-                    physical_edges_chain.add(
-                        tuple(sorted((chain[i], chain[j])))
-                    )
+                    physical_edges_chain.add(tuple(sorted((chain[i], chain[j]))))
 
     return physical_edges_logical, physical_edges_chain
+
+# ---------------------------------------------------------
+# CONFRONTO EMBEDDING
+# ---------------------------------------------------------
+def better_embedding(a, b):
+    if not a["success"]:
+        return False
+    if b is None:
+        return True
+
+    # 1) minimo numero di nodi fisici usati
+    if a["num_physical_used"] != b["num_physical_used"]:
+        return a["num_physical_used"] < b["num_physical_used"]
+
+    # 2) minima chain massima
+    if a["max_chain_length"] != b["max_chain_length"]:
+        return a["max_chain_length"] < b["max_chain_length"]
+
+    # 3) minima chain media
+    return a["avg_chain_length"] < b["avg_chain_length"]
 
 # ---------------------------------------------------------
 # RUN MINORMINER
@@ -79,6 +98,7 @@ def run_minorminer(G_logical, G_physical, exp, mode, out_dir):
         "time_seconds": elapsed,
         "num_logical_nodes": G_logical.number_of_nodes(),
         "num_physical_nodes": G_physical.number_of_nodes(),
+        "num_physical_used": None,
         "embedding": {},
         "max_chain_length": None,
         "avg_chain_length": None,
@@ -87,10 +107,15 @@ def run_minorminer(G_logical, G_physical, exp, mode, out_dir):
     }
 
     if embedding:
+        used_physical_nodes = set()
+        for chain in embedding.values():
+            used_physical_nodes.update(chain)
+
         chains = list(embedding.values())
         lengths = [len(c) for c in chains]
 
         result["embedding"] = {str(k): list(v) for k, v in embedding.items()}
+        result["num_physical_used"] = len(used_physical_nodes)
         result["max_chain_length"] = max(lengths)
         result["avg_chain_length"] = sum(lengths) / len(lengths)
 
@@ -108,7 +133,8 @@ def run_minorminer(G_logical, G_physical, exp, mode, out_dir):
     print(
         f"[ MM | {mode.upper()} ] Successo: {result['success']} | "
         f"Tempo: {elapsed:.4f}s | "
-        f"Max chain: {result['max_chain_length']}"
+        f"Max chain: {result['max_chain_length']} | "
+        f"Num fisici usati: {result['num_physical_used']}"
     )
 
     return result
@@ -153,6 +179,9 @@ def main():
         full_first_success = None
         reduced_first_success = None
 
+        best_full = None
+        best_reduced = None
+
         full_done = False
         reduced_done = False
         iter_count = 0
@@ -173,10 +202,12 @@ def main():
 
                 full_times.append(res["time_seconds"])
 
+                if res["success"] and better_embedding(res, best_full):
+                    best_full = copy.deepcopy(res)
+
                 if res["success"] and res["max_chain_length"] == 1:
-                    if full_first_success is None:
-                        full_first_success = res
-                        full_attempts_to_1to1 = full_attempts
+                    full_first_success = copy.deepcopy(res)
+                    full_attempts_to_1to1 = full_attempts
                     full_done = True
 
             # -------- REDUCED --------
@@ -192,15 +223,36 @@ def main():
 
                 reduced_times.append(res["time_seconds"])
 
+                if res["success"] and better_embedding(res, best_reduced):
+                    best_reduced = copy.deepcopy(res)
+
                 if res["success"] and res["max_chain_length"] == 1:
-                    if reduced_first_success is None:
-                        reduced_first_success = res
-                        reduced_attempts_to_1to1 = reduced_attempts
+                    reduced_first_success = copy.deepcopy(res)
+                    reduced_attempts_to_1to1 = reduced_attempts
                     reduced_done = True
 
             if G_physical_reduce is None:
                 reduced_done = True
 
+        # Dopo tutti i tentativi, riscrivo minorminer_result.json con il miglior embedding
+        # FULL
+        final_full = full_first_success if full_first_success else best_full
+        if final_full:
+            out_dir_full = os.path.join(output_base, str(exp_id), "full")
+            os.makedirs(out_dir_full, exist_ok=True)
+            with open(os.path.join(out_dir_full, "minorminer_result.json"), "w") as f_full:
+                json.dump(final_full, f_full, indent=2)
+
+        # REDUCED
+        if G_physical_reduce:
+            final_reduced = reduced_first_success if reduced_first_success else best_reduced
+            if final_reduced:
+                out_dir_reduced = os.path.join(output_base, str(exp_id), "reduced")
+                os.makedirs(out_dir_reduced, exist_ok=True)
+                with open(os.path.join(out_dir_reduced, "minorminer_result.json"), "w") as f_red:
+                    json.dump(final_reduced, f_red, indent=2)
+
+        # Aggiorno summary
         summary.append({
             "experiment_id": exp_id,
 
@@ -208,28 +260,24 @@ def main():
                 "total_attempts": full_attempts,
                 "found_1to1": bool(full_first_success),
                 "attempts_to_first_1to1": full_attempts_to_1to1,
-                "first_success_time": (
-                    full_first_success["time_seconds"]
-                    if full_first_success else None
-                ),
                 "avg_attempt_time": (
                     sum(full_times) / len(full_times)
                     if full_times else None
-                )
+                ),
+                "used_best_embedding": full_first_success is None,
+                "best_embedding": final_full
             },
 
             "reduced": {
                 "total_attempts": reduced_attempts,
                 "found_1to1": bool(reduced_first_success),
                 "attempts_to_first_1to1": reduced_attempts_to_1to1,
-                "first_success_time": (
-                    reduced_first_success["time_seconds"]
-                    if reduced_first_success else None
-                ),
                 "avg_attempt_time": (
                     sum(reduced_times) / len(reduced_times)
                     if reduced_times else None
-                )
+                ),
+                "used_best_embedding": reduced_first_success is None,
+                "best_embedding": final_reduced if G_physical_reduce else None
             },
 
             "attempts_loop": iter_count,
@@ -241,6 +289,7 @@ def main():
         json.dump(summary, f, indent=2)
 
     print("\n=== COMPLETATO ===")
+
 
 if __name__ == "__main__":
     main()
