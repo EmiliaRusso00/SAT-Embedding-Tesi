@@ -251,6 +251,20 @@ if __name__ == "__main__":
         print(" Overconstrained :", classification["overconstrained"])
         print(" Forzati         :", classification["forced"])
 
+            # --- Nuovo blocco: estrazione clausole forzate DIMACS ---
+        # --- Nuovo blocco: estrazione clausole forzate DIMACS (anche allowed singolo) ---
+        forced_dimacs = []
+        for log_node, st in logical_state.items():
+            # Se c'è un solo allowed, forzalo
+            if len(st["allowed"]) == 1:
+                phys_node = next(iter(st["allowed"]))
+                var_id = cnf_gen.x(log_node, phys_node)
+                forced_dimacs.append((var_id, log_node, phys_node))
+        if forced_dimacs:
+            print("\n=== Clausole DIMACS forzate (allowed singolo) ===")
+            for var_id, log_node, phys_node in forced_dimacs:
+                print(f"{var_id} 0   # x({log_node},{phys_node})")
+
         physical_conflicts = find_physical_conflicts(decoded)
         edge_conflicts = find_edge_conflicts(logical_state, G_log)
 

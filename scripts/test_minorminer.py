@@ -56,6 +56,17 @@ def compute_used_physical_edges(G_logical, G_physical, embedding):
     return physical_edges_logical, physical_edges_chain
 
 # ---------------------------------------------------------
+# CHECK ARCHI LOGICI
+# ---------------------------------------------------------
+def respects_logical_edges(G_logical, embedding, G_physical):
+    for u, v in G_logical.edges():
+        if u not in embedding or v not in embedding:
+            return False
+        if not any(G_physical.has_edge(a, b) for a in embedding[u] for b in embedding[v]):
+            return False
+    return True
+
+# ---------------------------------------------------------
 # CONFRONTO EMBEDDING
 # ---------------------------------------------------------
 def better_embedding(a, b):
@@ -63,24 +74,22 @@ def better_embedding(a, b):
         return False
     if b is None:
         return True
-
     # 1) minimo numero di nodi fisici usati
     if a["num_physical_used"] != b["num_physical_used"]:
         return a["num_physical_used"] < b["num_physical_used"]
-
     # 2) minima chain massima
     if a["max_chain_length"] != b["max_chain_length"]:
         return a["max_chain_length"] < b["max_chain_length"]
-
     # 3) minima chain media
-    return a["avg_chain_length"] < b["avg_chain_length"]
+    if a["avg_chain_length"] != b["avg_chain_length"]:
+        return a["avg_chain_length"] < b["avg_chain_length"]
+    # 4) minimo tempo
+    return a["time_seconds"] < b["time_seconds"]
 
 # ---------------------------------------------------------
 # RUN MINORMINER
 # ---------------------------------------------------------
-def run_minorminer(G_logical, G_physical, exp, mode, out_dir):
-    print(f"[ MM | {mode.upper()} ] Avvio")
-
+def run_minorminer(G_logical, G_physical, exp, mode, out_dir, attempt, max_attempts):
     start = time.perf_counter()
 
     embedding = minorminer.find_embedding(
@@ -91,10 +100,23 @@ def run_minorminer(G_logical, G_physical, exp, mode, out_dir):
 
     elapsed = time.perf_counter() - start
 
+    success = bool(embedding) and respects_logical_edges(G_logical, embedding, G_physical)
+
+    # --- Messaggio tentativo ---
+    attempt_str = f"{attempt}/{max_attempts}"
+    if success:
+        print(f"[ MM Success {attempt_str} | {mode.upper()} ] "
+              f"Successo: {success} | Tempo: {elapsed:.4f}s | "
+              f"Max chain: {max(len(c) for c in embedding.values())} | "
+              f"Num fisici usati: {len(set().union(*embedding.values()))}")
+    else:
+        print(f"[ MM Fail {attempt_str} | {mode.upper()} ] "
+              f"Avviso: l'embedding non rispetta tutti gli archi logici.")
+
     result = {
         "experiment_id": exp["id"],
         "mode": mode,
-        "success": bool(embedding),
+        "success": success,
         "time_seconds": elapsed,
         "num_logical_nodes": G_logical.number_of_nodes(),
         "num_physical_nodes": G_physical.number_of_nodes(),
@@ -122,20 +144,12 @@ def run_minorminer(G_logical, G_physical, exp, mode, out_dir):
         logical_edges, chain_edges = compute_used_physical_edges(
             G_logical, G_physical, embedding
         )
-
         result["physical_edges_logical"] = list(logical_edges)
         result["physical_edges_chain"] = list(chain_edges)
 
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "minorminer_result.json"), "w") as f:
         json.dump(result, f, indent=2)
-
-    print(
-        f"[ MM | {mode.upper()} ] Successo: {result['success']} | "
-        f"Tempo: {elapsed:.4f}s | "
-        f"Max chain: {result['max_chain_length']} | "
-        f"Num fisici usati: {result['num_physical_used']}"
-    )
 
     return result
 
@@ -170,17 +184,12 @@ def main():
         full_attempts = 0
         reduced_attempts = 0
 
-        full_attempts_to_1to1 = None
-        reduced_attempts_to_1to1 = None
-
-        full_times = []
-        reduced_times = []
-
-        full_first_success = None
-        reduced_first_success = None
-
+        full_time_accum = 0.0
+        reduced_time_accum = 0.0
         best_full = None
         best_reduced = None
+        full_first_success = None
+        reduced_first_success = None
 
         full_done = False
         reduced_done = False
@@ -193,49 +202,44 @@ def main():
             if not full_done:
                 full_attempts += 1
                 res = run_minorminer(
-                    G_logical,
-                    G_physical_full,
-                    exp,
-                    "full",
-                    os.path.join(output_base, str(exp_id), "full")
+                    G_logical, G_physical_full, exp, "full",
+                    os.path.join(output_base, str(exp_id), "full"),
+                    attempt=full_attempts, max_attempts=max_attempts
                 )
-
-                full_times.append(res["time_seconds"])
+                full_time_accum += res["time_seconds"]
 
                 if res["success"] and better_embedding(res, best_full):
                     best_full = copy.deepcopy(res)
-
                 if res["success"] and res["max_chain_length"] == 1:
                     full_first_success = copy.deepcopy(res)
-                    full_attempts_to_1to1 = full_attempts
+
+                    full_first_success["time_to_1to1"] = full_time_accum
+                    full_first_success["time_single_run_1to1"] = res["time_seconds"]
+                    full_first_success["attempts_to_1to1"] = full_attempts
                     full_done = True
 
             # -------- REDUCED --------
             if G_physical_reduce and not reduced_done:
                 reduced_attempts += 1
                 res = run_minorminer(
-                    G_logical,
-                    G_physical_reduce,
-                    exp,
-                    "reduced",
-                    os.path.join(output_base, str(exp_id), "reduced")
+                    G_logical, G_physical_reduce, exp, "reduced",
+                    os.path.join(output_base, str(exp_id), "reduced"),
+                    attempt=reduced_attempts, max_attempts=max_attempts
                 )
-
-                reduced_times.append(res["time_seconds"])
-
+                reduced_time_accum += res["time_seconds"]
                 if res["success"] and better_embedding(res, best_reduced):
                     best_reduced = copy.deepcopy(res)
-
                 if res["success"] and res["max_chain_length"] == 1:
                     reduced_first_success = copy.deepcopy(res)
-                    reduced_attempts_to_1to1 = reduced_attempts
-                    reduced_done = True
 
+                    reduced_first_success["time_to_1to1"] = reduced_time_accum
+                    reduced_first_success["time_single_run_1to1"] = res["time_seconds"]
+                    reduced_first_success["attempts_to_1to1"] = reduced_attempts
+                    reduced_done = True
             if G_physical_reduce is None:
                 reduced_done = True
 
-        # Dopo tutti i tentativi, riscrivo minorminer_result.json con il miglior embedding
-        # FULL
+        # --- Salva il miglior embedding ---
         final_full = full_first_success if full_first_success else best_full
         if final_full:
             out_dir_full = os.path.join(output_base, str(exp_id), "full")
@@ -243,7 +247,6 @@ def main():
             with open(os.path.join(out_dir_full, "minorminer_result.json"), "w") as f_full:
                 json.dump(final_full, f_full, indent=2)
 
-        # REDUCED
         if G_physical_reduce:
             final_reduced = reduced_first_success if reduced_first_success else best_reduced
             if final_reduced:
@@ -252,36 +255,18 @@ def main():
                 with open(os.path.join(out_dir_reduced, "minorminer_result.json"), "w") as f_red:
                     json.dump(final_reduced, f_red, indent=2)
 
-        # Aggiorno summary
         summary.append({
             "experiment_id": exp_id,
-
             "full": {
                 "total_attempts": full_attempts,
                 "found_1to1": bool(full_first_success),
-                "attempts_to_first_1to1": full_attempts_to_1to1,
-                "avg_attempt_time": (
-                    sum(full_times) / len(full_times)
-                    if full_times else None
-                ),
-                "used_best_embedding": full_first_success is None,
                 "best_embedding": final_full
             },
-
             "reduced": {
                 "total_attempts": reduced_attempts,
                 "found_1to1": bool(reduced_first_success),
-                "attempts_to_first_1to1": reduced_attempts_to_1to1,
-                "avg_attempt_time": (
-                    sum(reduced_times) / len(reduced_times)
-                    if reduced_times else None
-                ),
-                "used_best_embedding": reduced_first_success is None,
                 "best_embedding": final_reduced if G_physical_reduce else None
-            },
-
-            "attempts_loop": iter_count,
-            "max_attempts_allowed": max_attempts
+            }
         })
 
     os.makedirs(output_base, exist_ok=True)

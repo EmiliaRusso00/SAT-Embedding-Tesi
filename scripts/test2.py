@@ -3,6 +3,9 @@ import networkx as nx
 import minorminer
 import sys
 import re
+import time
+import copy
+import os
 
 # ---------------------------------------------------------
 # CARICAMENTO GRAFI
@@ -33,10 +36,8 @@ def load_graph_json(path):
 def parse_unsat_analysis(path):
     allowed_dict = {}
     forced_dict = {}
-
     with open(path) as f:
         lines = f.readlines()
-
     current_node = None
     for line in lines:
         line = line.strip()
@@ -44,153 +45,149 @@ def parse_unsat_analysis(path):
             current_node = int(line.split()[2].strip(":"))
         elif line.startswith("Allowed"):
             vals = line.split(":", 1)[1].strip().strip("[] ")
-            allowed_dict[current_node] = [
-                int(x) for x in re.split(r",\s*", vals) if x.isdigit()
-            ]
+            allowed_dict[current_node] = [int(x) for x in re.split(r",\s*", vals) if x.isdigit()]
         elif line.startswith("Forced"):
             vals = line.split(":", 1)[1].strip().strip("[] ")
-            forced_dict[current_node] = [
-                int(x) for x in re.split(r",\s*", vals) if x.isdigit()
-            ]
-
+            forced_dict[current_node] = [int(x) for x in re.split(r",\s*", vals) if x.isdigit()]
     return allowed_dict, forced_dict
 
 # ---------------------------------------------------------
-# VERIFICA ARCHI LOGICI
+# CONTROLLI DI VALIDITÀ
 # ---------------------------------------------------------
 def respects_logical_edges(G_log, embedding, G_phys):
     for u, v in G_log.edges():
-        if not any(G_phys.has_edge(a, b) for a in embedding[u] for b in embedding[v]):
-            print(f"[FAIL] Arco logico ({u},{v}) NON rispettato")
+        if not any(G_phys.has_edge(a, b) for a in embedding.get(u, []) for b in embedding.get(v, [])):
             return False
     return True
 
-# ---------------------------------------------------------
-# WRAPPER DI TRACE PER MINORMINER
-# ---------------------------------------------------------
-def traced_find_embedding(step_id, G_log, G_phys, fixed_chains, timeout):
-    print("\n" + "=" * 70)
-    print(f"[MINORMINER CALL #{step_id}]")
-    if fixed_chains:
-        print("Fixed chains:")
-        for n in sorted(fixed_chains):
-            print(f"  {n} -> {sorted(fixed_chains[n])}")
-    else:
-        print("Fixed chains: NONE")
-
-    used = sorted(q for ch in fixed_chains.values() for q in ch)
-    print("Used qubits:", used)
-    print("=" * 70)
-
-    emb = minorminer.find_embedding(
-        G_log.edges(),
-        G_phys.edges(),
-        fixed_chains=fixed_chains,
-        timeout=timeout
-    )
-
-    if not emb:
-        print("[RESULT] FAIL (no embedding)")
-        return None
-
-    print("[RESULT] EMBEDDING FOUND:")
-    for n in sorted(emb):
-        print(f"  {n} -> {sorted(emb[n])}")
-
-    return emb
 
 # ---------------------------------------------------------
-# EMBEDDING ITERATIVO SENZA CHECK ALLOWED
+# CONFRONTO EMBEDDING (stessa logica globale)
 # ---------------------------------------------------------
-def progressive_embedding(G_logical, G_physical, allowed_dict, forced_dict, timeout=30, max_retries=1):
-    step_id = 0
+def better_embedding(a, b):
+    if a is None:
+        return False
+    if b is None:
+        return True
 
-    # -------------------------------
-    # FASE 0: fissaggi hard (forced o allowed unico)
-    # -------------------------------
+    # 1) minimo numero di nodi fisici usati
+    if a["num_physical_used"] != b["num_physical_used"]:
+        return a["num_physical_used"] < b["num_physical_used"]
+
+    # 2) minima chain massima
+    if a["max_chain_length"] != b["max_chain_length"]:
+        return a["max_chain_length"] < b["max_chain_length"]
+
+    # 3) minima chain media
+    if a["avg_chain_length"] != b["avg_chain_length"]:
+        return a["avg_chain_length"] < b["avg_chain_length"]
+
+    # 4) minimo tempo
+    return a["time_seconds"] < b["time_seconds"]
+
+
+# ---------------------------------------------------------
+# METRICHE EMBEDDING
+# ---------------------------------------------------------
+def embedding_metrics(embedding):
+    used_physical = set()
+    lengths = []
+    for chain in embedding.values():
+        used_physical.update(chain)
+        lengths.append(len(chain))
+    return {
+        "num_physical_used": len(used_physical),
+        "max_chain_length": max(lengths),
+        "avg_chain_length": sum(lengths) / len(lengths)
+    }
+
+# ---------------------------------------------------------
+# MINORMINER CON TRACE
+# ---------------------------------------------------------
+def traced_find_embedding(G_log, G_phys, fixed_chains, timeout):
+    start = time.perf_counter()
+    emb = minorminer.find_embedding(G_log.edges(), G_phys.edges(), fixed_chains=fixed_chains, timeout=timeout)
+    elapsed = time.perf_counter() - start
+    return emb, elapsed
+
+# ---------------------------------------------------------
+# EMBEDDING ITERATIVO
+# ---------------------------------------------------------
+def progressive_embedding(G_logical, G_physical, allowed_dict, forced_dict, timeout=30, max_attempts=100):
+    # --- FIXED HARD ---
     fixed_hard = {}
     for n in allowed_dict:
         if len(forced_dict.get(n, [])) == 1:
             fixed_hard[n] = set(forced_dict[n])
-            print(f"[FIXED-HARD] Nodo {n} forced a {forced_dict[n][0]}")
         elif len(allowed_dict[n]) == 1:
             fixed_hard[n] = set(allowed_dict[n])
-            print(f"[FIXED-HARD] Nodo {n} allowed unico a {allowed_dict[n][0]}")
 
-    free_nodes = [n for n in allowed_dict if n not in fixed_hard]
+    best = None
 
-    # -------------------------------
-    # FASE ITERATIVA: rilancio Minorminer finché archi logici rispettati
-    # -------------------------------
-    for attempt in range(1, max_retries + 1):
-        print(f"\n[ATTEMPT {attempt}/{max_retries}]")
-        fixed = dict(fixed_hard)
-
-        emb = traced_find_embedding(step_id, G_logical, G_physical, fixed, timeout)
-        step_id += 1
+    for attempt in range(1, max_attempts + 1):
+        fixed = copy.deepcopy(fixed_hard)
+        emb, elapsed = traced_find_embedding(G_logical, G_physical, fixed, timeout)
 
         if not emb:
-            print("[Minorminer FAIL] Riprovo...")
+            print(f"[Attempt {attempt}] Nessun embedding trovato")
+            continue
+        if not respects_logical_edges(G_logical, emb, G_physical):
+            print(f"[Attempt {attempt}] Embedding non rispetta archi logici")
             continue
 
-        if respects_logical_edges(G_logical, emb, G_physical):
-            print("[SUCCESS] Embedding valido trovato!")
-            return emb
-        else:
-            print("[FAIL] Embedding trovato non rispetta archi logici, rilancio Minorminer...")
+        metrics = embedding_metrics(emb)
+        result = {
+            "success": True,
+            "time_seconds": elapsed,
+            "embedding": emb,
+            **metrics
+        }
 
-    print("[FAIL] Impossibile trovare embedding valido dopo massimo tentativi")
-    return None
+        # Aggiorna il best embedding secondo i criteri
+        # Aggiorna il best embedding secondo la logica globale
+        if better_embedding(result, best):
+            best = result
+            print(f"[Attempt {attempt}] Nuovo best embedding aggiornato")
+
+        # Mostra metriche correnti
+        print(f"[Attempt {attempt}] Nodi fisici usati: {metrics['num_physical_used']}, Max chain: {metrics['max_chain_length']}, Avg chain: {metrics['avg_chain_length']:.2f}")
+
+    return best
 
 # ---------------------------------------------------------
 # MAIN
 # ---------------------------------------------------------
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print("Uso: python test.py logical.json physical.json unsat_analysis.txt")
+        print("Uso: python script.py logical.json physical.json unsat_analysis.txt")
         sys.exit(1)
 
     G_log = load_graph_json(sys.argv[1])
     G_phys = load_graph_json(sys.argv[2])
     allowed, forced = parse_unsat_analysis(sys.argv[3])
 
-    num_attempts = 100
-    best_emb = None
-    best_max_chain = float("inf")
-    best_num_nodes_max_chain = float("inf")
+    result = progressive_embedding(G_log, G_phys, allowed, forced, timeout=30, max_attempts=100)
 
-    for attempt in range(1, num_attempts + 1):
-        print("\n" + "#" * 70)
-        print(f"[ATTEMPT {attempt}/{num_attempts}]")
-        emb = progressive_embedding(G_log, G_phys, allowed, forced)
-
-        if emb is None:
-            print("[ATTEMPT FALLITO]")
-            continue
-
-        chain_lengths = [len(chain) for chain in emb.values()]
-        max_chain_len = max(chain_lengths)
-        num_nodes_max_chain = chain_lengths.count(max_chain_len)
-
-        print(f"[ATTEMPT {attempt}] Massima chain: {max_chain_len}, Nodi con catena massima: {num_nodes_max_chain}")
-
-        if (max_chain_len < best_max_chain) or \
-           (max_chain_len == best_max_chain and num_nodes_max_chain < best_num_nodes_max_chain):
-            best_max_chain = max_chain_len
-            best_num_nodes_max_chain = num_nodes_max_chain
-            best_emb = emb
-            print(f"[ATTEMPT {attempt}] Nuovo embedding migliore trovato!")
-
-        if best_max_chain == 1 and best_num_nodes_max_chain == 0:
-            print("[EMBEDDING OTTIMALE TROVATO]")
-            break
-
-    if best_emb:
-        print("\n[EMBEDDING FINALE SELEZIONATO]")
-        print(f"Massima chain: {best_max_chain}, Nodi con catena massima: {best_num_nodes_max_chain}")
-        for n in sorted(best_emb):
-            print(f"{n} -> {sorted(best_emb[n])}")
-        sys.exit(0)
-    else:
-        print("[NESSUN EMBEDDING TROVATO]")
+    if not result:
+        print("[FAIL] Nessun embedding valido trovato")
         sys.exit(2)
+
+    # --- Stampa su stdout ---
+    print("\n[SUCCESS] Miglior embedding selezionato")
+    print(f"Tempo: {result['time_seconds']:.8f}s")
+    print(f"Nodi fisici usati: {result['num_physical_used']}")
+    print(f"Max chain: {result['max_chain_length']}")
+    print(f"Avg chain: {result['avg_chain_length']:.2f}")
+
+    for n in sorted(result["embedding"]):
+        print(f"{n} -> {sorted(result['embedding'][n])}")
+
+    # --- Salva in sat_minorminer_result.json ---
+    unsat_dir = os.path.dirname(os.path.abspath(sys.argv[3]))
+    os.makedirs(unsat_dir, exist_ok=True)
+    output_file = os.path.join(unsat_dir, "sat_minorminer_result.json")
+    with open(output_file, "w") as f:
+        json.dump(result, f, indent=2)
+
+    print(f"\n[INFO] Risultato salvato in {output_file}")
+    sys.exit(0)

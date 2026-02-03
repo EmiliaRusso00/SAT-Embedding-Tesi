@@ -3,16 +3,11 @@ import networkx as nx
 import json
 import os
 
-
 class CNFGenerator:
 
     def __init__(self, G_log, G_phys, G_log_json=None, G_phys_json=None,
-                 exp_dir=None, exp_id=0, skip_reduction=False, physical_center=None):
-        """
-        G_log: grafo logico (NetworkX)
-        G_phys: grafo fisico (NetworkX)
-        physical_center: nodo centrale fisico da usare per riduzione
-        """
+                 exp_dir=None, exp_id=0, skip_reduction=False, physical_center=None,
+                 forced_assignments=None):  # <-- nuova versione
         self.G_log = G_log
         self.G_phys_original = G_phys
         self.G_log_json = G_log_json
@@ -21,13 +16,12 @@ class CNFGenerator:
         self.exp_id = exp_id
         self.skip_reduction = skip_reduction
         self.forced_physical_center = physical_center
+        self.forced_assignments = forced_assignments or {}  # <-- dizionario {log_node: phys_node}
 
         self.embeddable = True
         self.reject_reasons = []
 
-        # -------------------------
         # Riduzione o full graph
-        # -------------------------
         if self.skip_reduction:
             print("[INFO] Variante FULL: nessuna riduzione del grafo fisico.")
             self.G_phys = self.G_phys_original.copy()
@@ -41,9 +35,7 @@ class CNFGenerator:
             self.G_phys, self.center_node, self.logical_center, self.phys_radius = \
                 self._extract_physical_subgraph(self.G_phys_original, self.G_log, self.forced_physical_center)
 
-        # -------------------------
         # Precheck embedding
-        # -------------------------
         try:
             self._precheck_embedding(self.G_log, self.G_phys)
         except Exception as e:
@@ -51,18 +43,14 @@ class CNFGenerator:
             self.reject_reasons.append(f"Errore durante precheck: {e}")
             print(f"[WARN] Errore durante precheck embedding: {e}")
 
-        # -------------------------
-        # Salvataggio JSON ridotto se necessario
-        # -------------------------
+        # Salvataggio JSON ridotto
         if self.G_phys is not None and len(self.G_phys.nodes()) and self.exp_dir:
             try:
                 self._save_reduced_phys_json()
             except Exception as e:
                 print(f"[WARN] Non sono riuscito a salvare reduced JSON: {e}")
 
-        # -------------------------
-        # Ordinamento nodi e mappa variabili SAT
-        # -------------------------
+        # Mappa variabili SAT
         self.logical_nodes = list(sorted(G_log.nodes()))
         self.physical_nodes = list(sorted(self.G_phys.nodes()))
         self.n = len(self.logical_nodes)
@@ -77,7 +65,6 @@ class CNFGenerator:
         self.inv_var_map = {v: k for k, v in self.var_map.items()}
         self.clauses = []
         self.clause_type = []
-
     # -------------------------
     def _precheck_embedding(self, G_log, G_phys):
         n_log = len(G_log)
@@ -200,33 +187,38 @@ class CNFGenerator:
 
     # -------------------------
     def generate(self):
-            if not self.embeddable:
-                print("[INFO] Skip CNF generation: problem not embeddable")
-                return 0, 0
-            self.encode_exactly_one_per_logical()
-            self.encode_mutual_exclusion_on_physical()
-            self.encode_edge_consistency()
+        if not self.embeddable:
+            print("[INFO] Skip CNF generation: problem not embeddable")
+            return 0, 0
 
-            if self.logical_center is not None and self.center_node is not None:
-                self.add_clause([self.x(self.logical_center, self.center_node)], "center_mapping")
+        self.encode_exactly_one_per_logical()
+        self.encode_mutual_exclusion_on_physical()
+        self.encode_edge_consistency()
 
-            # --- Clausole forzate da unsat_analysis.txt ---
-            if self.exp_dir:
-                unsat_path = os.path.join(self.exp_dir, "unsat_analysis.txt")
-                if os.path.exists(unsat_path):
-                    with open(unsat_path, "r") as f:
-                        for line in f:
-                            line = line.strip()
-                            # Cerca righe tipo: <var_id> 0   # x(log_node,phys_node)
-                            if line and line.endswith(")") and " 0" in line:
-                                tokens = line.split()
-                                try:
-                                    var_id = int(tokens[0])
-                                    self.add_clause([var_id], "forced_unsat")
-                                except Exception:
-                                    pass
+        if self.logical_center is not None and self.center_node is not None:
+            self.add_clause([self.x(self.logical_center, self.center_node)], "center_mapping")
 
-            return self.num_vars, len(self.clauses)
+        # --- Forced assignments dai precedenti step ---
+        for i, a in self.forced_assignments.items():
+            if (i, a) in self.var_map:
+                self.add_clause([self.x(i, a)], "forced_assignment")
+
+        # --- Clausole forzate da unsat_analysis.txt ---
+        if self.exp_dir:
+            unsat_path = os.path.join(self.exp_dir, "unsat_analysis.txt")
+            if os.path.exists(unsat_path):
+                with open(unsat_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and line.endswith(")") and " 0" in line:
+                            tokens = line.split()
+                            try:
+                                var_id = int(tokens[0])
+                                self.add_clause([var_id], "forced_unsat")
+                            except Exception:
+                                pass
+
+        return self.num_vars, len(self.clauses)
 
     # -------------------------
     def write_dimacs(self, path):

@@ -51,10 +51,14 @@ def run_experiment(cfg):
 
     print(f"[INFO] Centri fisici candidati: {candidate_centers}")
 
+    # --- Chiedo all'utente se provare tutti i centri fisici ---
+    try_all = input("Vuoi provare tutti i centri fisici possibili? (y/n): ").strip().lower() == 'y'
+    if not try_all:
+        candidate_centers = [candidate_centers[0]]  # solo il primo centro
+
     found_solution = False
     solution_map_reduced = None
     num_vars_reduced = num_clauses_reduced = 0
-
     t0_reduced = time.time()
     sat_time_reduced = 0.0
 

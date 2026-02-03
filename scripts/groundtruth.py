@@ -17,29 +17,22 @@ CSV_OUT = os.path.join(OUTPUT_DIR, "embedding_times_summary.csv")
 # =========================
 def pretty_logical_graph(name):
     base = os.path.splitext(os.path.basename(name))[0]
-
     m = re.match(r"clique(\d+)", base)
     if m:
         return f"C{m.group(1)}"
-
     m = re.match(r"bipartito(\d+)x(\d+)", base)
     if m:
         return f"K{m.group(1)},{m.group(2)}"
-
     return base
-
 
 def pretty_physical_graph(name):
     base = os.path.splitext(os.path.basename(name))[0]
-
     m = re.match(r"zephyr(\d+)$", base)
     if m:
         return f"Zephyr (m={m.group(1)})"
-
     m = re.match(r"zephyr(\d+)_(\d+)_(\d+)", base)
     if m:
         return f"Zephyr (m={m.group(1)}, |V|={m.group(2)}, |E|={m.group(3)})"
-
     return base
 
 # =========================
@@ -56,21 +49,15 @@ results = []
 for exp_summary in summary_data:
     exp_id = exp_summary["experiment_id"]
 
-    full_file = os.path.join(
-        OUTPUT_DIR, str(exp_id), "full", f"experiment_{exp_id:03d}.json"
-    )
-    reduced_file = os.path.join(
-        OUTPUT_DIR, str(exp_id), "reduced", f"experiment_{exp_id:03d}.json"
-    )
+    full_file = os.path.join(OUTPUT_DIR, str(exp_id), "full", f"experiment_{exp_id:03d}.json")
+    reduced_file = os.path.join(OUTPUT_DIR, str(exp_id), "reduced", f"experiment_{exp_id:03d}.json")
 
     logical_graph = None
     physical_graph = None
-
     num_logical_nodes = None
     num_logical_edges = None
     num_physical_nodes = None
     num_physical_edges = None
-
     tempo_full_sat = None
     tempo_reduce_sat = None
 
@@ -80,7 +67,6 @@ for exp_summary in summary_data:
     if os.path.isfile(full_file):
         with open(full_file, "r") as f:
             data = json.load(f)
-
         config = data.get("config", {})
         solver = data.get("solver", {})
         logical_info = data.get("logical_graph", {})
@@ -103,38 +89,48 @@ for exp_summary in summary_data:
     if os.path.isfile(reduced_file):
         with open(reduced_file, "r") as f:
             data = json.load(f)
-
         solver = data.get("solver", {})
         if solver.get("status") == "SAT":
             tempo_reduce_sat = solver.get("time_sat_solve")
 
     # =========================
-    # LEGGO MINORMINER DAL SUMMARY (avg_attempt_time)
+    # LEGGO MINORMINER DAL SUMMARY (tempo solo embedding 1:1)
     # =========================
     full_mm = exp_summary.get("full", {})
     reduced_mm = exp_summary.get("reduced", {})
 
-    tempo_mm_full = full_mm.get("avg_attempt_time")
-    tempo_mm_reduce = reduced_mm.get("avg_attempt_time")
+    tempo_mm_full = None
+    tempo_mm_reduce = None
+    att_full_1to1 = None
+    att_red_1to1 = None
+
+    # FULL
+    full_best = full_mm.get("best_embedding")
+    if full_best and full_mm.get("found_1to1"):
+        tempo_mm_full = full_best.get("time_to_1to1")
+        att_full_1to1 = full_best.get("attempts_to_1to1")
+
+    # REDUCED
+    reduced_best = reduced_mm.get("best_embedding")
+    if reduced_best and reduced_mm.get("found_1to1"):
+        tempo_mm_reduce = reduced_best.get("time_to_1to1")
+        att_red_1to1 = reduced_best.get("attempts_to_1to1")
 
     results.append({
         "EXPERIMENT_ID": exp_id,
         "LOGICAL_GRAPH": logical_graph,
         "PHYSICAL_GRAPH": physical_graph,
-
         "NUM_LOGICAL_NODES": num_logical_nodes,
         "NUM_LOGICAL_EDGES": num_logical_edges,
         "NUM_PHYSICAL_NODES": num_physical_nodes,
         "NUM_PHYSICAL_EDGES": num_physical_edges,
-
         "TEMPO_MM_FULL": tempo_mm_full,
         "TEMPO_MM_REDUCE": tempo_mm_reduce,
         "TEMPO_FULL_SAT": tempo_full_sat,
         "TEMPO_REDUCE_SAT": tempo_reduce_sat,
-
         # TENTATIVI 1:1
-        "MM_FULL_ATTEMPTS_TO_1TO1": full_mm.get("attempts_to_first_1to1"),
-        "MM_REDUCED_ATTEMPTS_TO_1TO1": reduced_mm.get("attempts_to_first_1to1"),
+        "MM_FULL_ATTEMPTS_TO_1TO1": att_full_1to1,
+        "MM_REDUCED_ATTEMPTS_TO_1TO1": att_red_1to1,
         "MM_MAX_ATTEMPTS": exp_summary.get("max_attempts_allowed"),
     })
 
@@ -151,7 +147,6 @@ PLOT_DIR = os.path.dirname(CSV_OUT)
 # =========================
 for pg in df["PHYSICAL_GRAPH"].dropna().unique():
     df_pg = df[df["PHYSICAL_GRAPH"] == pg].copy()
-
     for col in ["TEMPO_MM_FULL", "TEMPO_MM_REDUCE", "TEMPO_FULL_SAT", "TEMPO_REDUCE_SAT"]:
         df_pg[col] = pd.to_numeric(df_pg[col], errors="coerce")
 
@@ -161,39 +156,52 @@ for pg in df["PHYSICAL_GRAPH"].dropna().unique():
         parts = [str(r['LOGICAL_GRAPH'])]
         att_full = r["MM_FULL_ATTEMPTS_TO_1TO1"]
         att_red = r["MM_REDUCED_ATTEMPTS_TO_1TO1"]
-        max_att = r["MM_MAX_ATTEMPTS"]
+        max_att = 100
+
+        # Se max_att è None, usiamo "?" come segnaposto
+        safe_max = int(max_att) if pd.notna(max_att) else "?"
 
         if pd.notna(att_full):
-            parts.append(f"full:({int(att_full)}/{int(max_att)})")
+            parts.append(f"full:({int(att_full)}/{safe_max})")
         if pd.notna(att_red):
-            parts.append(f"reduced:({int(att_red)}/{int(max_att)})")
+            parts.append(f"reduced:({int(att_red)}/{safe_max})")
         if pd.isna(att_full) and pd.isna(att_red):
-            parts.append(f"(–/{int(max_att)})")
+            parts.append(f"(–/{safe_max})")
 
         labels.append("\n".join(parts))
 
-    x = np.arange(len(df_pg))
-    n_bars = 4
-    width = 0.8 / n_bars  # ogni gruppo di barre occupa 80% dello spazio
-    offsets = np.linspace(-0.5, 0.5, n_bars) * 0.8  # centrato su x
+
+    # =========================
+    # Barre raggruppate
+    # =========================
+    x = np.arange(len(df_pg))  # posizioni dei gruppi
+    n_bars = 4                 # barre per gruppo
+    width = 0.2                # larghezza di ciascuna barra
+    group_spacing = 0.2        # spazio extra tra gruppi
 
     fig, ax = plt.subplots(figsize=(18, 9))
+    offsets = np.arange(n_bars) * width - (width * n_bars / 2) + width / 2
 
-    bars_mm_full = ax.bar(x + offsets[0], df_pg["TEMPO_MM_FULL"], width, label="Minorminer Full")
-    bars_mm_red  = ax.bar(x + offsets[1], df_pg["TEMPO_MM_REDUCE"], width, label="Minorminer Reduced")
-    bars_sat_full = ax.bar(x + offsets[2], df_pg["TEMPO_FULL_SAT"], width, label="SAT Full")
-    bars_sat_red  = ax.bar(x + offsets[3], df_pg["TEMPO_REDUCE_SAT"], width, label="SAT Reduced")
+    bars_list = []
+    cols = ["TEMPO_MM_FULL", "TEMPO_MM_REDUCE", "TEMPO_FULL_SAT", "TEMPO_REDUCE_SAT"]
+    for i, col in enumerate(cols):
+        bars = ax.bar(
+            x * (n_bars*width + group_spacing) + offsets[i],
+            df_pg[col],
+            width,
+            label=col
+        )
+        bars_list.append(bars)
 
+    ax.set_xticks(x * (n_bars*width + group_spacing))
+    ax.set_xticklabels(labels, rotation=0)
     ax.set_yscale("log")
     ax.set_ylabel("Tempo (s) [scala log]")
     ax.set_xlabel("Grafo logico")
     ax.set_title(f"Confronto Minorminer vs SAT\nGrafo fisico: {pg}")
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels, rotation=0)
     ax.legend()
 
-    # Funzione per scrivere valori sopra le barre
+    # Funzione autolabel
     def autolabel(bars):
         for bar in bars:
             h = bar.get_height()
@@ -207,8 +215,7 @@ for pg in df["PHYSICAL_GRAPH"].dropna().unique():
                     va="bottom",
                     fontsize=9
                 )
-
-    for bars in [bars_mm_full, bars_mm_red, bars_sat_full, bars_sat_red]:
+    for bars in bars_list:
         autolabel(bars)
 
     ax.margins(y=0.2)
@@ -218,5 +225,4 @@ for pg in df["PHYSICAL_GRAPH"].dropna().unique():
     plot_path = os.path.join(PLOT_DIR, f"confronto_tempi_{safe_pg}.png")
     plt.savefig(plot_path, dpi=300)
     plt.close()
-
     print(f"Grafico salvato: {plot_path}")
