@@ -7,11 +7,13 @@ import os
 class CNFGenerator:
 
     def __init__(self, G_log, G_phys, G_log_json=None, G_phys_json=None,
-                 exp_dir=None, exp_id=0, skip_reduction=False, physical_center=None):
+                 exp_dir=None, exp_id=0, skip_reduction=False,
+                 physical_center=None, stream_path=None):
         """
         G_log: grafo logico (NetworkX)
         G_phys: grafo fisico (NetworkX)
         physical_center: nodo centrale fisico da usare per riduzione
+        stream_path: se fornito, scrive clausole DIMACS direttamente su file
         """
         self.G_log = G_log
         self.G_phys_original = G_phys
@@ -21,6 +23,7 @@ class CNFGenerator:
         self.exp_id = exp_id
         self.skip_reduction = skip_reduction
         self.forced_physical_center = physical_center
+        self.stream_path = stream_path
 
         self.embeddable = True
         self.reject_reasons = []
@@ -74,9 +77,21 @@ class CNFGenerator:
                 self.var_map[(i, a)] = vid
                 vid += 1
         self.num_vars = vid - 1
-        self.inv_var_map = {v: k for k, v in self.var_map.items()}
-        self.clauses = []
-        self.clause_type = []
+
+        # -------------------------
+        # Apertura file streaming
+        # -------------------------
+        if self.stream_path:
+            os.makedirs(os.path.dirname(self.stream_path), exist_ok=True)
+            self.f_stream = open(self.stream_path, "w")
+            self.num_clauses_written = 0
+            # placeholder p cnf, sarà aggiornato a fine scrittura
+            self.f_stream.write(f"p cnf {self.num_vars} 0\n")
+        else:
+            self.f_stream = None
+            self.clause_set = set()    # solo se non in streaming
+            self.clauses = []
+            self.clause_type = []
 
     # -------------------------
     def _precheck_embedding(self, G_log, G_phys):
@@ -109,7 +124,6 @@ class CNFGenerator:
 
     # -------------------------
     def _extract_physical_subgraph(self, G_phys, G_log, forced_center):
-        # Seleziona componente connessa più grande
         components = list(nx.connected_components(G_phys))
         comp = max(components, key=len)
         G_comp = G_phys.subgraph(comp).copy()
@@ -118,26 +132,20 @@ class CNFGenerator:
         min_degree_required = G_log.degree(logical_center)
         print(f"[INFO] Centro logico: {logical_center} (grado {min_degree_required})")
 
-        # Controllo centro fisico compatibile
         if G_comp.degree(forced_center) < min_degree_required:
             raise RuntimeError(f"Centro fisico {forced_center} non soddisfa grado minimo richiesto {min_degree_required}")
 
         physical_center = forced_center
-
-        # Sottografo centrato sul centro fisico
         distances_phys = nx.single_source_shortest_path_length(G_comp, physical_center)
         distances_log = nx.single_source_shortest_path_length(G_log, logical_center)
         max_dist_log = max(distances_log.values())
 
         chosen_nodes = [n for n, d in distances_phys.items() if d <= max_dist_log]
         G_sub = G_comp.subgraph(chosen_nodes).copy()
-
         print(f"[INFO] Sottografo ridotto: {len(G_sub)} nodi selezionati intorno al centro fisico {physical_center}")
 
         return G_sub, physical_center, logical_center, max_dist_log
 
-    # -------------------------
-    # Salvataggio JSON ridotto
     # -------------------------
     def _save_reduced_phys_json(self):
         metadata = {}
@@ -163,20 +171,23 @@ class CNFGenerator:
         print(f"[INFO] Saved reduced physical graph JSON to {path}")
 
     # -------------------------
-    # Variabili SAT
-    # -------------------------
     def x(self, i, a):
         return self.var_map[(i, a)]
 
     def add_clause(self, lits, ctype="generic"):
-        key = tuple(sorted(lits))
-        if not hasattr(self, 'clause_set'):
-            self.clause_set = set()
-        if key not in self.clause_set:
+        if self.f_stream:
+            self.f_stream.write(f"c type {ctype}\n")
+            self.f_stream.write(' '.join(str(l) for l in lits) + " 0\n")
+            self.num_clauses_written += 1
+        else:
+            key = tuple(sorted(lits))
+            if key in self.clause_set:
+                return
+            self.clause_set.add(key)
             self.clauses.append(list(lits))
             self.clause_type.append(ctype)
-            self.clause_set.add(key)
 
+    # -------------------------
     def encode_exactly_one_per_logical(self):
         for i in self.logical_nodes:
             lits = [self.x(i, a) for a in self.physical_nodes]
@@ -200,32 +211,38 @@ class CNFGenerator:
 
     # -------------------------
     def generate(self):
-            if not self.embeddable:
-                print("[INFO] Skip CNF generation: problem not embeddable")
-                return 0, 0
-            self.encode_exactly_one_per_logical()
-            self.encode_mutual_exclusion_on_physical()
-            self.encode_edge_consistency()
+        if not self.embeddable:
+            print("[INFO] Skip CNF generation: problem not embeddable")
+            return 0, 0
 
-            if self.logical_center is not None and self.center_node is not None:
-                self.add_clause([self.x(self.logical_center, self.center_node)], "center_mapping")
+        self.encode_exactly_one_per_logical()
+        self.encode_mutual_exclusion_on_physical()
+        self.encode_edge_consistency()
 
-            # --- Clausole forzate da unsat_analysis.txt ---
-            if self.exp_dir:
-                unsat_path = os.path.join(self.exp_dir, "unsat_analysis.txt")
-                if os.path.exists(unsat_path):
-                    with open(unsat_path, "r") as f:
-                        for line in f:
-                            line = line.strip()
-                            # Cerca righe tipo: <var_id> 0   # x(log_node,phys_node)
-                            if line and line.endswith(")") and " 0" in line:
-                                tokens = line.split()
-                                try:
-                                    var_id = int(tokens[0])
-                                    self.add_clause([var_id], "forced_unsat")
-                                except Exception:
-                                    pass
+        if self.logical_center is not None and self.center_node is not None:
+            self.add_clause([self.x(self.logical_center, self.center_node)], "center_mapping")
 
+        if self.exp_dir:
+            unsat_path = os.path.join(self.exp_dir, "unsat_analysis.txt")
+            if os.path.exists(unsat_path):
+                with open(unsat_path, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and line.endswith(")") and " 0" in line:
+                            tokens = line.split()
+                            try:
+                                var_id = int(tokens[0])
+                                self.add_clause([var_id], "forced_unsat")
+                            except Exception:
+                                pass
+
+        if self.f_stream:
+            # Aggiorna header p cnf
+            self.f_stream.seek(0)
+            self.f_stream.write(f"p cnf {self.num_vars} {self.num_clauses_written}\n")
+            self.f_stream.close()
+            return self.num_vars, self.num_clauses_written
+        else:
             return self.num_vars, len(self.clauses)
 
     # -------------------------
@@ -233,6 +250,11 @@ class CNFGenerator:
         if not self.embeddable:
             print("[INFO] Skip writing DIMACS: problem not embeddable")
             return
+
+        if self.f_stream:
+            print(f"[INFO] DIMACS già scritto in streaming: {self.stream_path}")
+            return
+
         with open(path, 'w') as f:
             f.write(f"p cnf {self.num_vars} {len(self.clauses)}\n")
             for idx, (c, ctype) in enumerate(zip(self.clauses, self.clause_type), start=1):
