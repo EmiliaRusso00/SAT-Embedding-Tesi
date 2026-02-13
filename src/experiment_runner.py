@@ -6,7 +6,7 @@ import networkx as nx
 
 from parser import read_graph, read_graph_json
 from cnf_generator import CNFGenerator
-from solver_interface import solve_dimacs_file
+from solver_interface_cripto import solve_dimacs_file
 from metrics import write_experiment_output
 from utils import ensure_dir
 from plot_utils import plot_embedding, plot_noembedding
@@ -52,9 +52,9 @@ def run_experiment(cfg):
     print(f"[INFO] Centri fisici candidati: {candidate_centers}")
 
     # --- Chiedo all'utente se provare tutti i centri fisici ---
-    try_all = input("Vuoi provare tutti i centri fisici possibili? (y/n): ").strip().lower() == 'y'
-    if not try_all:
-        candidate_centers = [candidate_centers[0]]  # solo il primo centro
+#   try_all = input("Vuoi provare tutti i centri fisici possibili? (y/n): ").strip().lower() == 'y'
+##   if not try_all:
+#        candidate_centers = [candidate_centers[0]]  # solo il primo centro
 
     found_solution = False
     solution_map_reduced = None
@@ -86,7 +86,9 @@ def run_experiment(cfg):
         gen.write_dimacs(dimacs_path_reduced)
 
         t_sat_start = time.time()
-        res_reduced = solve_dimacs_file(dimacs_path_reduced, timeout_seconds=timeout, cnf_gen=gen)
+        num_threads = max(os.cpu_count() - 1, 1)
+        res_reduced = solve_dimacs_file(dimacs_path_reduced, timeout_seconds=timeout, num_threads=num_threads)
+        #res_reduced = solve_dimacs_file(dimacs_path_reduced, timeout_seconds=timeout, cnf_gen=gen)
         t_sat_end = time.time()
         sat_time_reduced += (t_sat_end - t_sat_start)
 
@@ -171,7 +173,8 @@ def run_experiment(cfg):
         gen_full.write_dimacs(dimacs_path_full)
 
         t_sat_start = time.time()
-        res_full = solve_dimacs_file(dimacs_path_full, timeout_seconds=timeout, cnf_gen=gen_full)
+        res_full = solve_dimacs_file(dimacs_path_full, timeout_seconds=timeout, num_threads=num_threads)
+        #res_full = solve_dimacs_file(dimacs_path_full, timeout_seconds=timeout, cnf_gen=gen_full)
         t_sat_end = time.time()
         sat_time_full = t_sat_end - t_sat_start
 

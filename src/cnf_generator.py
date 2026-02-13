@@ -256,8 +256,9 @@ class CNFGenerator:
             return
 
         with open(path, 'w') as f:
+            # Header CNF standard
             f.write(f"p cnf {self.num_vars} {len(self.clauses)}\n")
-            for idx, (c, ctype) in enumerate(zip(self.clauses, self.clause_type), start=1):
-                f.write(f"c id {idx} type {ctype}\n")
+            # Scrivi solo clausole, senza commenti
+            for c in self.clauses:
                 f.write(' '.join(str(l) for l in c) + ' 0\n')
-        print(f"[INFO] Wrote DIMACS CNF with {self.num_vars} vars e {len(self.clauses)} clauses to {path}")
+        print(f"[INFO] Wrote clean DIMACS CNF with {self.num_vars} vars e {len(self.clauses)} clauses to {path}")
